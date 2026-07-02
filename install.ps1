@@ -120,10 +120,16 @@ if (-not (Test-Path $venvPython)) {
 W-Yellow "  Installing dependencies (this takes a minute)..."
 $requirements = Join-Path $InstallDir "requirements.txt"
 & $venvPython -m pip install --upgrade pip --quiet
-& $venvPython -m pip install -r $requirements --quiet 2>&1 | ForEach-Object {
-    if ($_ -match "error|Error") { W-Red "  $_" }
+# Must run from $InstallDir so the `-e .` editable install resolves correctly
+Push-Location $InstallDir
+try {
+    & $venvPython -m pip install -r $requirements --quiet 2>&1 | ForEach-Object {
+        if ($_ -match "error|Error") { W-Red "  $_" }
+    }
+    if ($LASTEXITCODE -ne 0) { W-Red "  pip install failed."; Pop-Location; exit 1 }
+} finally {
+    Pop-Location
 }
-if ($LASTEXITCODE -ne 0) { W-Red "  pip install failed."; exit 1 }
 W-Green "  Dependencies installed."
 
 # -- 4. Prompt for LAN subnet (firewall scope; D11) --------------------------
@@ -182,11 +188,11 @@ if ($configContent -match "CHANGE_ME") {
 # -- 6. Quick foreground test (verify the app starts) ------------------------
 W-Step "6" "Verifying the app starts..."
 W-Yellow "  Running a 5-second smoke test..."
-$mainScript = Join-Path $InstallDir "raidwatch\main.py"
 $testJob = Start-Job -ScriptBlock {
-    param($py, $script)
-    & $py $script 2>&1  # runs once, we'll kill it
-} -ArgumentList $venvPython, $mainScript
+    param($py, $dir)
+    Set-Location $dir
+    & $py -m raidwatch.main 2>&1  # runs once, we'll kill it
+} -ArgumentList $venvPython, $InstallDir
 
 Start-Sleep -Seconds 5
 # The app doesn't exit on its own (it's a server), so we stop the test job
@@ -221,9 +227,10 @@ if ($existing) {
     Start-Sleep -Seconds 1
 }
 
-& $nssm install $ServiceName $venvPython $mainScript
+# Use `-m raidwatch.main` (not the .py path) so Python resolves the package
+# via AppDirectory, which is more reliable than relying on the editable install.
+& $nssm install $ServiceName $venvPython "-m raidwatch.main"
 & $nssm set $ServiceName AppDirectory $InstallDir
-& $nssm set $ServiceName AppDirectoryBackslash $true
 # Run as SYSTEM (needed for LHM kernel driver; D9/D31)
 & $nssm set $ServiceName ObjectName LocalSystem
 # NSSM captures stdout/stderr + rotation (D26)
@@ -291,8 +298,8 @@ $taskXml = @"
     </Principal>
   </Principals>
   <Settings>
-    <AllowStartOnBattery>true</AllowStartOnBattery>
-    <DontStopIfGoingOnBatteries>true</DontStopIfGoingOnBatteries>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
     <StartWhenAvailable>true</StartWhenAvailable>
     <ExecutionTimeLimit>PT5M</ExecutionTimeLimit>
   </Settings>
