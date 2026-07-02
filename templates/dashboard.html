@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}RaidWatch — {{ server_name | default("host") }}{% endblock %}
+
+{% block content %}
+<!-- Loading state -->
+<div id="loading" class="text-center py-16 text-slate-400">
+    <div class="inline-block animate-spin text-green-400 text-2xl mb-2">⚡</div>
+    <p>Connecting to live data stream…</p>
+</div>
+
+<div id="dashboard" class="hidden space-y-6">
+    <!-- Status Cards Row (D10: current-vs-threshold headroom gauges) -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <!-- Overall Health -->
+        <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+            <div class="text-slate-400 text-xs mb-2">Overall Health</div>
+            <div id="card-health" class="text-lg font-bold text-green-400">—</div>
+            <div id="card-health-detail" class="text-slate-500 text-xs mt-1"></div>
+        </div>
+
+        <!-- CPU gauge + sparkline -->
+        <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+            <div class="text-slate-400 text-xs mb-2">CPU</div>
+            <div class="flex items-center gap-3">
+                <svg class="w-12 h-12 -rotate-90" viewBox="0 0 36 36">
+                    <circle cx="18" cy="18" r="16" fill="none" stroke="#334155" stroke-width="3"/>
+                    <circle id="gauge-cpu" cx="18" cy="18" r="16" fill="none" stroke="#22c55e" stroke-width="3"
+                            stroke-dasharray="100" stroke-dashoffset="100" stroke-linecap="round"
+                            class="gauge-arc"/>
+                </svg>
+                <div>
+                    <div id="card-cpu" class="text-xl font-bold text-green-400">—</div>
+                    <div class="text-slate-500 text-xs" id="card-cpu-cores"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RAM gauge + used/avail -->
+        <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+            <div class="text-slate-400 text-xs mb-2">RAM</div>
+            <div class="flex items-center gap-3">
+                <svg class="w-12 h-12 -rotate-90" viewBox="0 0 36 36">
+                    <circle cx="18" cy="18" r="16" fill="none" stroke="#334155" stroke-width="3"/>
+                    <circle id="gauge-ram" cx="18" cy="18" r="16" fill="none" stroke="#3b82f6" stroke-width="3"
+                            stroke-dasharray="100" stroke-dashoffset="100" stroke-linecap="round"
+                            class="gauge-arc"/>
+                </svg>
+                <div>
+                    <div id="card-ram" class="text-xl font-bold text-blue-400">—</div>
+                    <div class="text-slate-500 text-xs" id="card-ram-detail"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CPU Temp (warning if unvalidated; D9) -->
+        <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+            <div class="text-slate-400 text-xs mb-2">CPU Temp</div>
+            <div id="card-temp" class="text-xl font-bold text-slate-300">—</div>
+            <div id="card-temp-detail" class="text-slate-500 text-xs mt-1">Sensor: N/A</div>
+        </div>
+
+        <!-- Storage (game drive free % + I/O) -->
+        <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+            <div class="text-slate-400 text-xs mb-2">Storage</div>
+            <div id="card-storage-free" class="text-xl font-bold text-slate-300">—</div>
+            <div class="text-slate-500 text-xs mt-1">
+                <span id="card-disk-io">I/O: —</span>
+                <span id="card-disk-queue" class="ml-2"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mini Charts Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-slate-300 text-sm">CPU % (last hour)</h3>
+                <select id="range-select" class="bg-slate-700 text-slate-300 text-xs rounded px-2 py-1 border border-slate-600"
+                        onchange="loadHistory()">
+                    <option value="60">1h</option>
+                    <option value="360">6h</option>
+                    <option value="1440">24h</option>
+                </select>
+            </div>
+            <canvas id="chart-cpu" height="160"></canvas>
+        </div>
+        <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+            <h3 class="text-slate-300 text-sm mb-2">RAM % (last hour)</h3>
+            <canvas id="chart-ram" height="160"></canvas>
+        </div>
+    </div>
+
+    <!-- Disk I/O + Network charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+            <h3 class="text-slate-300 text-sm mb-2">Disk I/O (KB/s)</h3>
+            <canvas id="chart-disk" height="120"></canvas>
+        </div>
+        <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+            <h3 class="text-slate-300 text-sm mb-2">Network (KB/s)</h3>
+            <canvas id="chart-net" height="120"></canvas>
+        </div>
+    </div>
+
+    <!-- Top Processes Table (D20) -->
+    <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+        <h3 class="text-slate-300 text-sm mb-3">Top Processes</h3>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-slate-400 border-b border-slate-700 text-left">
+                        <th class="py-2 pr-4">PID</th>
+                        <th class="pr-4">Name</th>
+                        <th class="text-right pr-4">CPU %</th>
+                        <th class="text-right">RSS</th>
+                    </tr>
+                </thead>
+                <tbody id="process-table-body">
+                    <tr><td colspan="4" class="text-slate-500 py-3 text-center">No data yet.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Recent Fika Events (decorative; D3) -->
+    <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+        <h3 class="text-slate-300 text-sm mb-3">Recent Events</h3>
+        <div id="events-feed" class="space-y-1 max-h-48 overflow-y-auto">
+            <p class="text-slate-500 text-sm">No events yet.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,99 @@
+[project]
+name = "raidwatch"
+version = "0.1.0"
+description = "Lightweight, browser-served monitoring dashboard for a dedicated SPT + Project Fika host"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "RaidWatch" }]
+keywords = ["monitoring", "dashboard", "spt", "fika", "homelab"]
+
+# Core dependencies — cross-platform (install on Linux + Windows).
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "aiosqlite>=0.20",
+    "psutil>=6.0",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "pyyaml>=6.0",
+    "python-multipart>=0.0.9",   # FastAPI login form (POST x-www-form-urlencoded)
+    "jinja2>=3.1",               # Jinja2 templates (dashboard/login)
+    "sse-starlette>=2.1",        # SSE EventSourceResponse (D5/D12)
+]
+
+[project.optional-dependencies]
+# Windows-only deps use PEP 508 environment markers so they are NOT installed
+# on the Linux dev box. The `win` extra exists for documentation/explicit install
+# on Windows, but the markers below are what actually gate installation.
+# `uv` honors markers and skips these on non-Windows platforms.
+win = [
+    "pywin32>=306; sys_platform == 'win32'",
+    "pythonnet>=3.0; sys_platform == 'win32'",
+]
+
+[project.urls]
+Documentation = "https://github.com/raidwatch/raidwatch"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["raidwatch"]
+
+# Dev/test tooling via standard dependency groups (PEP 735).
+[dependency-groups]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "httpx>=0.27",          # FastAPI TestClient async support
+    "ruff>=0.5",
+]
+
+# --------------------------------------------------------------------------- #
+# Ruff — lint + format (D32)                                                  #
+# --------------------------------------------------------------------------- #
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["vendor", "static/vendor", "nssm.exe"]
+
+[tool.ruff.lint]
+# Enable a broad, sensible rule set.
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "C4",   # flake8-comprehensions
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff-specific
+]
+ignore = [
+    "E501",  # line-too-long handled by formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Scripts may use argparse + print; tests relax some rules.
+"scripts/**" = ["T201"]   # allow print() in CLI scripts
+"tests/**" = ["T201"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# --------------------------------------------------------------------------- #
+# Pytest (D32)                                                                #
+# --------------------------------------------------------------------------- #
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = [
+    "error::DeprecationWarning",
+    # Allow pending deprecations from third-party libs to not fail the suite.
+    "ignore::pytest.PytestUnraisableExceptionWarning",
+]

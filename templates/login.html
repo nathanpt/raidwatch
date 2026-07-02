@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RaidWatch — Login</title>
+    <link rel="stylesheet" href="/static/vendor/tailwind.css">
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center">
+    <div class="w-full max-w-sm">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-green-400">RaidWatch</h1>
+            <p class="text-slate-400 text-sm mt-1">Hardware + Fika monitoring</p>
+        </div>
+
+        <form method="POST" action="/login" class="bg-slate-800 rounded-lg p-6 shadow-lg border border-slate-700">
+            {% if error %}
+            <div class="mb-4 bg-red-900/50 border border-red-700 text-red-200 text-sm rounded-md p-3" role="alert">
+                {{ error }}
+            </div>
+            {% endif %}
+
+            <label for="token" class="block text-sm font-medium text-slate-300 mb-2">Access Token</label>
+            <input
+                type="password"
+                id="token"
+                name="token"
+                required
+                autocomplete="current-password"
+                autofocus
+                class="w-full bg-slate-900 border border-slate-600 rounded-md px-3 py-2 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder="Enter your access token"
+            >
+
+            <button type="submit"
+                class="w-full mt-4 bg-green-600 hover:bg-green-500 text-white font-medium rounded-md px-4 py-2 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-slate-800">
+                Sign In
+            </button>
+        </form>
+
+        <p class="text-center text-slate-500 text-xs mt-4">
+            Token from <code class="text-slate-400">config.yaml</code> → <code class="text-slate-400">auth.token</code>
+        </p>
+    </div>
+</body>
+</html>

@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual env
+.venv/
+venv/
+env/
+
+# RaidWatch runtime data (auto-generated, never committed)
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# uv lock is committed; ignore stale local lock artifacts
+# (uv.lock IS committed — do NOT ignore it)
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs (NSSM-captured in prod; dev stdout)
+*.log
+
+# Vendored binary download artifacts (kept: nssm.exe committed per D18)

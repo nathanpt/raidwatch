@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}RaidWatch{% endblock %}</title>
+    <link rel="stylesheet" href="/static/vendor/tailwind.css">
+    <script src="/static/vendor/chart.umd.min.js"></script>
+    <style>
+        [x-cloak] { display: none; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
+    <!-- Top Nav -->
+    <nav class="bg-slate-800 border-b border-slate-700 px-4 md:px-6 py-3 flex items-center justify-between sticky top-0 z-50">
+        <div class="flex items-center gap-4">
+            <h1 class="text-xl font-bold text-green-400">⚡ RaidWatch</h1>
+            <span class="text-slate-400 text-sm hidden sm:inline">{{ server_name | default("host") }}</span>
+        </div>
+        <div class="flex items-center gap-2 md:gap-4">
+            <span id="status-pill"
+                  class="px-3 py-1 rounded-full text-xs md:text-sm font-medium bg-slate-700 text-slate-300 border border-slate-600"
+                  role="status" aria-live="polite">
+                Connecting…
+            </span>
+            <span id="uptime-hint" class="text-slate-500 text-xs hidden lg:inline"></span>
+            <button onclick="exportCSV()" title="Export CSV (last 24h)"
+                    class="text-slate-400 hover:text-green-400 text-sm transition-colors">
+                📥 <span class="hidden md:inline">Export</span>
+            </button>
+            <button onclick="refreshNow()" title="Refresh Now (r)"
+                    class="text-slate-400 hover:text-green-400 text-sm transition-colors">
+                🔄 <span class="hidden md:inline">Refresh</span>
+            </button>
+            <button onclick="toggleTheme()" id="theme-toggle" title="Toggle theme"
+                    class="text-slate-400 hover:text-green-400 text-sm transition-colors">
+                ☀️
+            </button>
+            <a href="/logout" class="text-slate-400 hover:text-slate-200 text-sm transition-colors" title="Logout">🚪</a>
+        </div>
+    </nav>
+
+    <!-- Active Alerts Banner (populated by app.js) -->
+    <div id="alerts-banner" class="hidden"></div>
+
+    <!-- Main content -->
+    <main class="flex-1 max-w-7xl mx-auto w-full px-4 md:px-6 py-6">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-700 px-6 py-3 text-center text-slate-500 text-xs">
+        RaidWatch · <span id="footer-version"></span> ·
+        <kbd class="px-1 py-0.5 bg-slate-700 rounded">?</kbd> help ·
+        <kbd class="px-1 py-0.5 bg-slate-700 rounded">r</kbd> refresh ·
+        <kbd class="px-1 py-0.5 bg-slate-700 rounded">/</kbd> search
+    </footer>
+
+    <!-- Toast container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 space-y-2 z-50"></div>
+
+    <!-- Help modal -->
+    <div id="help-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center" onclick="if(event.target===this)this.classList.add('hidden')">
+        <div class="bg-slate-800 rounded-lg p-6 max-w-md border border-slate-600">
+            <h2 class="text-lg font-bold text-green-400 mb-3">Keyboard Shortcuts</h2>
+            <ul class="space-y-1 text-sm text-slate-300">
+                <li><kbd class="px-1 py-0.5 bg-slate-700 rounded">?</kbd> — This help</li>
+                <li><kbd class="px-1 py-0.5 bg-slate-700 rounded">r</kbd> — Refresh now</li>
+                <li><kbd class="px-1 py-0.5 bg-slate-700 rounded">/</kbd> — Focus search (future)</li>
+                <li><kbd class="px-1 py-0.5 bg-slate-700 rounded">Esc</kbd> — Close modals</li>
+            </ul>
+            <button onclick="document.getElementById('help-modal').classList.add('hidden')"
+                    class="mt-4 bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded text-sm">Close</button>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

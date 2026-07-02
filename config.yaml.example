@@ -1,0 +1,82 @@
+# RaidWatch configuration.
+# On first run (missing config.yaml), this file is auto-generated with safe
+# defaults — system metrics work with zero config; Fika starts disabled (D23).
+# Edit values by hand, then restart the service (no live reload in v1).
+
+server:
+  name: "tarkov-fika-host"
+  # SPT install root. Fika module disabled until this path exists (D23).
+  spt_path: "D:\\SPTarkov"
+  log_paths:
+    server: "D:\\SPTarkov\\BepInEx\\LogOutput.log"
+    fika: "D:\\SPTarkov\\user\\mods\\fika-server\\logs\\fika.log"
+    watchdog: "%APPDATA%\\WATCHDOG"
+  bind_host: "0.0.0.0"   # firewall scopes reachability (D11)
+  port: 8080
+
+processes:
+  # Config-driven discovery (D4). Run `scripts/discover_processes.py` to confirm.
+  spt_server_process_name: "SPT.Server.exe"
+  headless_process_name: "EscapeFromTarkov.exe"
+  # Regex compiled at load; invalid regex is a clear config error (D4).
+  # Confirm the exact arg from your WATCHDOG/Fika setup.
+  headless_cmdline_pattern: "--fika-headless"
+
+collection:
+  interval_seconds: 5
+  history_retention_hours: 48
+  whea_poll_seconds: 60       # D7/D16 — WHEA polled less often than the 5s core
+  top_others_poll_seconds: 15 # D20 — top-others process table on its own timer
+
+temps:
+  # D9/D30. Requires the .NET runtime + vendored LHM DLLs.
+  lhm_dll_path: "vendor/lhm/LibreHardwareMonitorLib.dll"
+  # Fill from `scripts/probe_temps.py` output, then arm cpu_thermal gate.
+  cpu_sensor_name: ""
+  tctl_offset: 20             # Zen1 (1800X) +20°C offset — confirm via probe
+
+gates:
+  # Conservative v1 defaults — lower thresholds after baselining a real raid (D10).
+  # cpu_thermal is DISABLED by default until probe-validated (D9).
+  ram_high:
+    enabled: true
+    threshold: 90             # conservative; lower to ~82 after baselining
+    duration_seconds: 300
+    severity: high
+    recommendation: "Add 16-32GB DDR4 3000MHz+ kit (dual channel). Verify XMP + SPT/headless working sets."
+  cpu_sustained:
+    enabled: true
+    threshold: 88
+    duration_seconds: 600
+    severity: medium
+    recommendation: "CPU upgrade path: Zen 3 5800X3D, or add/optimize headless clients. Tune Fika bot/spawn limits first."
+  storage_io:
+    enabled: true
+    threshold: 3.0            # disk queue length
+    duration_seconds: 120
+    severity: medium
+    recommendation: "Faster storage: NVMe for SPT/game files (separate from OS). Or reduce map complexity/mods."
+  storage_space:
+    enabled: true
+    threshold: 15             # free space percent (gate fires when BELOW this)
+    duration_seconds: 0       # immediate — no sustained duration needed
+    severity: medium
+    recommendation: "Clean old profiles, logs, temp files, or expand drive."
+  stability_whea:
+    enabled: true
+    threshold: 5              # WHEA events in last 2h sliding window (D16)
+    duration_seconds: 0
+    severity: high
+    recommendation: "BIOS/RAM tuning: verify XMP/DOCP, FCLK sync, DRAM voltages/timings. Reseat RAM, update chipset/BIOS."
+  cpu_thermal:
+    enabled: false            # D9: disabled until probe-validated
+    threshold: 90
+    duration_seconds: 180
+    severity: high
+    recommendation: "Check AIO pump/fans/dust/repaste. Verify sensor identity + Tctl offset via probe_temps.py."
+
+auth:
+  # ≥32-byte random token, install-generated, ACL'd to SYSTEM+Admins (D33).
+  # NEVER logged (redacted via logging filter). Replace this placeholder before
+  # exposing on the network; install_service.ps1 generates a strong token.
+  token: "CHANGE_ME_TO_A_STRONG_RANDOM_TOKEN_AT_LEAST_32_BYTES_LONG"
