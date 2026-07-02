@@ -229,7 +229,8 @@ if ($existing) {
 
 # Use `-m raidwatch.main` (not the .py path) so Python resolves the package
 # via AppDirectory, which is more reliable than relying on the editable install.
-& $nssm install $ServiceName $venvPython "-m raidwatch.main"
+& $nssm install $ServiceName $venvPython
+& $nssm set $ServiceName AppParameters "-m raidwatch.main"
 & $nssm set $ServiceName AppDirectory $InstallDir
 # Run as SYSTEM (needed for LHM kernel driver; D9/D31)
 & $nssm set $ServiceName ObjectName LocalSystem
@@ -316,8 +317,10 @@ W-Green "  Watchdog registered (checks /health every 60s, restarts on failure)."
 
 # -- 11. Start the service ---------------------------------------------------
 W-Step "11" "Starting RaidWatch service..."
-Start-Service $ServiceName
-Start-Sleep -Seconds 3
+Start-Sleep -Seconds 1
+& $nssm start $ServiceName 2>&1 | Out-Null
+Start-Sleep -Seconds 5
+
 $svc = Get-Service $ServiceName
 
 # -- Done --------------------------------------------------------------------
@@ -325,7 +328,15 @@ W-Cyan "`n==============================================================="
 if ($svc.Status -eq 'Running') {
     W-Green "  [OK] RaidWatch is running!"
 } else {
-    W-Red "  [X] Service status: $($svc.Status) - check data\raidwatch.log"
+    W-Red "  [X] Service status: $($svc.Status)"
+    $logFile = Join-Path $InstallDir "data\raidwatch.log"
+    if (Test-Path $logFile) {
+        W-Yellow "`n  --- Last 30 lines of data\raidwatch.log ---"
+        Get-Content $logFile -Tail 30 | ForEach-Object { Write-Host "    $_" }
+        W-Yellow "  --- End log ---`n"
+    } else {
+        W-Red "  No log file at $logFile"
+    }
 }
 
 # Display access info
