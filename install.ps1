@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     RaidWatch one-command installer.
 
@@ -47,26 +47,26 @@ function W-Green($t){Write-Host $t -ForegroundColor Green}
 function W-Red($t){Write-Host $t -ForegroundColor Red}
 function W-Step($n,$t){W-Cyan "`n[$n] $t"}
 
-# ── Uninstall path ──────────────────────────────────────────────────────────
+# -- Uninstall path ----------------------------------------------------------
 if ($Uninstall) {
     W-Cyan "`n=== Uninstalling RaidWatch ==="
     & (Join-Path $InstallDir "scripts\uninstall_service.ps1") -ServiceName $ServiceName
     return
 }
 
-# ── 0. Verify running as Admin ──────────────────────────────────────────────
+# -- 0. Verify running as Admin ----------------------------------------------
 W-Step "0" "Checking administrator privileges..."
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     W-Red "This installer must be run as Administrator."
-    W-Yellow "Right-click PowerShell → 'Run as Administrator', then re-run:"
+    W-Yellow "Right-click PowerShell -> 'Run as Administrator', then re-run:"
     W-Yellow "  .\install.ps1"
     Read-Host "`nPress Enter to exit"
     exit 1
 }
-W-Green "  OK — running as Administrator."
+W-Green "  OK - running as Administrator."
 
-# ── 1. Check Python 3.12+ ───────────────────────────────────────────────────
+# -- 1. Check Python 3.12+ ---------------------------------------------------
 W-Step "1" "Checking Python 3.12+..."
 $pythonCmd = $null
 foreach ($cmd in @("python", "py")) {
@@ -90,7 +90,7 @@ if (-not $pythonCmd) {
     exit 1
 }
 
-# ── 2. Check .NET runtime (needed for temps/LHM; D30) ───────────────────────
+# -- 2. Check .NET runtime (needed for temps/LHM; D30) -----------------------
 W-Step "2" "Checking .NET runtime (needed for CPU temps)..."
 $dotnetOK = $false
 try {
@@ -102,11 +102,11 @@ try {
 } catch {}
 if (-not $dotnetOK) {
     W-Yellow "  .NET runtime not found. CPU temps will be unavailable until installed."
-    W-Yellow "  (The dashboard works fine without it — temps are optional.)"
+    W-Yellow "  (The dashboard works fine without it - temps are optional.)"
     W-Yellow "  Download later: https://dotnet.microsoft.com/download/dotnet/8.0"
 }
 
-# ── 3. Create virtualenv + install deps ─────────────────────────────────────
+# -- 3. Create virtualenv + install deps -------------------------------------
 W-Step "3" "Setting up Python virtual environment..."
 $venvPython = Join-Path $InstallDir ".venv\Scripts\python.exe"
 if (-not (Test-Path $venvPython)) {
@@ -126,7 +126,7 @@ $requirements = Join-Path $InstallDir "requirements.txt"
 if ($LASTEXITCODE -ne 0) { W-Red "  pip install failed."; exit 1 }
 W-Green "  Dependencies installed."
 
-# ── 4. Prompt for LAN subnet (firewall scope; D11) ──────────────────────────
+# -- 4. Prompt for LAN subnet (firewall scope; D11) --------------------------
 W-Step "4" "Configuring firewall scope..."
 if (-not $LanSubnet) {
     W-Cyan "  The firewall rule limits who can reach the dashboard."
@@ -144,12 +144,12 @@ if (-not $LanSubnet) {
             W-Green "  Auto-detected: $LanSubnet"
         } else {
             $LanSubnet = "192.168.1.0/24"
-            W-Yellow "  Could not auto-detect — using 192.168.1.0/24 (edit later if needed)."
+            W-Yellow "  Could not auto-detect - using 192.168.1.0/24 (edit later if needed)."
         }
     }
 }
 
-# ── 5. First-run: auto-generate config + token (D23/D13) ────────────────────
+# -- 5. First-run: auto-generate config + token (D23/D13) --------------------
 W-Step "5" "Generating configuration..."
 $configFile = Join-Path $InstallDir "data\config.yaml"
 $configExample = Join-Path $InstallDir "config.yaml.example"
@@ -179,7 +179,7 @@ if ($configContent -match "CHANGE_ME") {
     W-Green "  Token already configured (keeping existing)."
 }
 
-# ── 6. Quick foreground test (verify the app starts) ────────────────────────
+# -- 6. Quick foreground test (verify the app starts) ------------------------
 W-Step "6" "Verifying the app starts..."
 W-Yellow "  Running a 5-second smoke test..."
 $mainScript = Join-Path $InstallDir "raidwatch\main.py"
@@ -202,7 +202,7 @@ if ($testOutput -match "Traceback|Error|ImportError") {
 }
 W-Green "  App starts successfully."
 
-# ── 7. Install NSSM service (D18) ───────────────────────────────────────────
+# -- 7. Install NSSM service (D18) -------------------------------------------
 W-Step "7" "Installing Windows service..."
 $nssm = Join-Path $InstallDir "nssm.exe"
 if (-not (Test-Path $nssm)) { W-Red "  nssm.exe not found at $nssm"; exit 1 }
@@ -230,7 +230,7 @@ if ($existing) {
 & $nssm set $ServiceName AppRestartDelay 5000
 W-Green "  Service installed (running as SYSTEM)."
 
-# ── 8. ACL config.yaml to SYSTEM + Administrators (D33) ─────────────────────
+# -- 8. ACL config.yaml to SYSTEM + Administrators (D33) ---------------------
 W-Step "8" "Securing config file..."
 $acl = Get-Acl $configFile
 $acl.SetAccessRuleProtection($true, $false)  # disable inheritance
@@ -239,7 +239,7 @@ $acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule("BUIL
 Set-Acl $configFile $acl
 W-Green "  Config ACL'd to SYSTEM + Administrators only (D33)."
 
-# ── 9. Firewall rule (D11) ──────────────────────────────────────────────────
+# -- 9. Firewall rule (D11) --------------------------------------------------
 W-Step "9" "Creating firewall rule..."
 $remoteAddresses = @($LanSubnet, "100.64.0.0/10") -join ","
 Get-NetFirewallRule -DisplayName "RaidWatch" -ErrorAction SilentlyContinue | Remove-NetFirewallRule
@@ -248,7 +248,7 @@ New-NetFirewallRule -DisplayName "RaidWatch" `
     -Action Allow -RemoteAddress $remoteAddresses | Out-Null
 W-Green "  Firewall scoped to: $remoteAddresses"
 
-# ── 10. Health watchdog (D27) ───────────────────────────────────────────────
+# -- 10. Health watchdog (D27) -----------------------------------------------
 W-Step "10" "Registering health watchdog..."
 $watchdogScript = @"
 `$ErrorActionPreference = 'SilentlyContinue'
@@ -266,18 +266,18 @@ $taskPrincipal = New-ScheduledTaskPrincipal -UserId "NT AUTHORITY\SYSTEM" -Logon
 Register-ScheduledTask -TaskName "RaidWatchHealthWatchdog" -Action $action -Trigger $trigger -Settings $settings -Principal $taskPrincipal -Force | Out-Null
 W-Green "  Watchdog registered (checks /health every 60s, restarts on failure)."
 
-# ── 11. Start the service ───────────────────────────────────────────────────
+# -- 11. Start the service ---------------------------------------------------
 W-Step "11" "Starting RaidWatch service..."
 Start-Service $ServiceName
 Start-Sleep -Seconds 3
 $svc = Get-Service $ServiceName
 
-# ── Done ────────────────────────────────────────────────────────────────────
-W-Cyan "`n═══════════════════════════════════════════════════════════════"
+# -- Done --------------------------------------------------------------------
+W-Cyan "`n==============================================================="
 if ($svc.Status -eq 'Running') {
-    W-Green "  ✓ RaidWatch is running!"
+    W-Green "  [OK] RaidWatch is running!"
 } else {
-    W-Red "  ✗ Service status: $($svc.Status) — check data\raidwatch.log"
+    W-Red "  [X] Service status: $($svc.Status) - check data\raidwatch.log"
 }
 
 # Display access info
@@ -293,14 +293,14 @@ if ($generatedToken) {
     W-Yellow "  Save this! You'll need it to log in."
     W-Yellow "  (Also stored in data\config.yaml)"
 } else {
-    W-Yellow "    See data\config.yaml → auth.token"
+    W-Yellow "    See data\config.yaml -> auth.token"
 }
 
 W-Cyan "`n  Optional next steps:"
-Write-Host "    • CPU temps:   python scripts\probe_temps.py  (then enable cpu_thermal gate)"
-Write-Host "    • Fika setup:   python scripts\discover_processes.py  (fill headless pattern)"
-Write-Host "    • Tune gates:   edit data\config.yaml after baselining a raid"
+Write-Host "    * CPU temps:   python scripts\probe_temps.py  (then enable cpu_thermal gate)"
+Write-Host "    * Fika setup:   python scripts\discover_processes.py  (fill headless pattern)"
+Write-Host "    * Tune gates:   edit data\config.yaml after baselining a raid"
 Write-Host ""
 Write-Host "  Logs: data\raidwatch.log"
 Write-Host "  Uninstall: .\install.ps1 -Uninstall"
-W-Cyan "═══════════════════════════════════════════════════════════════`n"
+W-Cyan "===============================================================`n"

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Uninstall the RaidWatch Windows service and clean up (reverse of install_service.ps1).
 

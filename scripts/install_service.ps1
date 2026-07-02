@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Install RaidWatch as a Windows service using vendored NSSM (D18).
 
@@ -52,11 +52,11 @@ if (Test-Path $configFile) {
         $configContent = $configContent -replace "CHANGE_ME[^""]*", $token
         # Write back via Python to preserve YAML formatting
         $configContent | Set-Content $configFile -NoNewline
-        Write-Host "Token generated. Save it — you'll need it to log in." -ForegroundColor Green
+        Write-Host "Token generated. Save it - you'll need it to log in." -ForegroundColor Green
         Write-Host "Token: $token" -ForegroundColor Yellow
     }
 } else {
-    Write-Warning "Config not found at $configFile — will auto-generate on first run (D23)."
+    Write-Warning "Config not found at $configFile - will auto-generate on first run (D23)."
 }
 
 # --- 2. Install NSSM service (D18) ---
@@ -108,7 +108,7 @@ $watchdogScript = @"
 `$resp = Invoke-WebRequest -Uri 'http://localhost:8080/health' -TimeoutSec 10 -UseBasicParsing
 if (`$resp.StatusCode -ne 200) {
     Restart-Service -Name '$ServiceName' -Force
-    Write-EventLog -LogName Application -Source 'RaidWatch' -EntryType Error -EventId 1 -Message 'Health check failed — service restarted'
+    Write-EventLog -LogName Application -Source 'RaidWatch' -EntryType Error -EventId 1 -Message 'Health check failed - service restarted'
 }
 "@
 $watchdogFile = Join-Path $InstallDir "scripts\health_watchdog.ps1"
