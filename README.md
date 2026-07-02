@@ -8,23 +8,19 @@ sustained metric crossings into concrete recommendations.
 
 ## Quick Start
 
+**Windows (one command):**
+```powershell
+git clone https://github.com/nathanpt/raidwatch.git
+cd raidwatch
+.\install.ps1
+```
+The installer handles venv, deps, token generation, service install, firewall, and health watchdog. See **[SETUP_GUIDE.md](SETUP_GUIDE.md)** for details.
+
+**Linux dev (degraded mode — system metrics work, Fika/temps/WHEA unavailable):**
 ```bash
-# Linux dev (degraded mode — system metrics work, Fika/temps/WHEA unavailable)
 uv sync
 uv run uvicorn raidwatch.main:app --port 8080
-# Open http://localhost:8080 → login with token from data/config.yaml
 ```
-
-```powershell
-# Windows production (full features)
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-python main.py
-```
-
-See **[SETUP_GUIDE.md](SETUP_GUIDE.md)** for the full step-by-step deployment
-(service install, firewall, temps validation, process discovery, baselining).
 
 ## Key Features
 

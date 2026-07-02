@@ -1,182 +1,109 @@
 # RaidWatch — Setup Guide
 
-Step-by-step deployment for Windows 11 IoT LTSC (spec §6). Follow in order.
-
-## Prerequisites
-
-1. **Windows 11 IoT LTSC** (debloated, AM4/LAN/AIO drivers, updates applied).
-2. Static IP or Tailscale configured.
-3. **.NET runtime** installed (required by pythonnet/LibreHardwareMonitor; D30).
-   - Install the .NET Desktop Runtime 8.x from Microsoft.
-4. **Python 3.12+** installed (added to PATH).
-
-## Installation
-
-### Step 1 — Copy project + create venv
+## Quick Install (one command)
 
 ```powershell
-# Copy project to a non-OS drive
-mkdir D:\Tools\RaidWatch
-# Copy all project files here (including vendor/lhm/, nssm.exe)
+# 1. Clone the repo to a non-OS drive
+cd D:\Tools
+git clone https://github.com/nathanpt/raidwatch.git
+cd raidwatch
 
-cd D:\Tools\RaidWatch
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
+# 2. Run the installer (as Administrator)
+.\install.ps1
 ```
 
-### Step 2 — First run (foreground test)
+That's it. The installer does everything:
+- Checks for Python 3.12+ and .NET runtime
+- Creates the virtualenv and installs dependencies
+- Generates a strong auth token
+- Installs the Windows service (SYSTEM via NSSM)
+- Creates the firewall rule (LAN + Tailscale scoped)
+- Secures the config file (SYSTEM + Admins only)
+- Registers the health watchdog
+- Starts the service and prints your login URL + token
 
-On first run with no `config.yaml`, it **auto-generates** with safe defaults (D23).
-System metrics work immediately; Fika starts disabled.
+When it finishes, open `http://localhost:8080` and log in with the displayed token.
+
+### Firewall scope
+
+The installer will prompt for your LAN subnet (or auto-detect it). It always
+includes the Tailscale range (`100.64.0.0/10`). You can also pass it directly:
 
 ```powershell
-python main.py
+.\install.ps1 -LanSubnet "192.168.1.0/24"
 ```
 
-Open `http://localhost:8080` in a browser:
-- Login page appears → enter the token from `data/config.yaml` (`auth.token`).
-- Dashboard loads with live CPU/RAM/disk metrics.
-- Fika/temps/WHEA show "unavailable" or "N/A" until configured.
+---
 
-Verify `/health` returns `"status": "operational"`:
-```powershell
-curl http://localhost:8080/health
-```
-
-Press `Ctrl+C` to stop.
-
-### Step 3 — Install as a service (D18)
-
-Run the install script as **Administrator**:
+## Uninstall
 
 ```powershell
-# Edit $LanSubnets in the script to match your network first!
-powershell -ExecutionPolicy Bypass -File scripts\install_service.ps1
+.\install.ps1 -Uninstall
 ```
 
-This will:
-- Install RaidWatch as a **SYSTEM** service via NSSM (needed for LHM; D9/D31)
-- Set SCM restart on 1st/2nd/3rd failure (D18)
-- **Generate a strong auth token** (replacing the CHANGE_ME placeholder; D13)
-- **ACL `config.yaml`** to SYSTEM + Administrators only (D33)
-- Create a firewall rule scoped to LAN + Tailscale (D11)
-- Register an external `/health` watchdog (D27)
+Removes the service, firewall rule, and health watchdog. Your data and config
+are preserved (in `data/`).
 
-Save the generated token — you need it to log in.
+---
 
-### Step 4 — Firewall verification (D11)
+## Post-Install (Optional)
 
-The install script creates a firewall rule. Verify it scopes reachability:
+These steps enable the optional features. The dashboard works without them.
 
-```powershell
-Get-NetFirewallRule -DisplayName "RaidWatch" | Get-NetFirewallAddressFilter
-```
+### CPU Temperatures (D9)
 
-**Edit `$LanSubnets`** in `install_service.ps1` to match your network. Guest/IoT
-VLANs should be excluded.
-
-### Step 5 — Access from another device
-
-From your gaming PC:
-- LAN: `http://<host-ip>:8080`
-- Tailscale: `http://<tailscale-ip>:8080`
-
-Log in once with the token (cookie persists ~90 days; D24).
-
-## Post-Install Configuration
-
-### Step 6 — Temperature validation (D9)
-
-**CPU temp displays from launch but the `cpu_thermal` gate is DISABLED.**
-To arm it:
+CPU temp displays from launch, but the `cpu_thermal` gate ships **disabled**
+until you validate the sensor. To enable it:
 
 ```powershell
 python scripts\probe_temps.py
 ```
 
-This enumerates LHM sensors on the 1800X, dumps names/values, and observes the
-Zen1 Tctl +20°C offset. Fill the results into `config.yaml`:
+This enumerates the LHM sensors on your CPU, shows the Tctl offset, and tells
+you exactly what to put in `config.yaml`. After editing:
 
-```yaml
-temps:
-  cpu_sensor_name: "Tctl"        # from probe output
-  tctl_offset: 20                # Zen1 (1800X)
-gates:
-  cpu_thermal:
-    enabled: true                # arm after validation
+```powershell
+Restart-Service RaidWatch
 ```
 
-Restart the service: `Restart-Service RaidWatch`
+### Fika Process Discovery (D4)
 
-### Step 7 — Process discovery (D4)
-
-Identify the headless client launch arg from your WATCHDOG/Fika setup:
+To track SPT.Server and headless clients, confirm the process signature:
 
 ```powershell
 python scripts\discover_processes.py
 ```
 
-Fill the result into `config.yaml`:
+Then fill the results into `config.yaml` under `processes:` and `server.spt_path`,
+and restart the service.
 
-```yaml
-processes:
-  headless_cmdline_pattern: "--fika-headless"  # confirm from output
-```
+### Tune Gate Thresholds (D10)
 
-### Step 8 — Configure Fika paths (D23)
+Gates ship with **conservative** thresholds. After running a real raid, watch
+the gauges and lower thresholds in `config.yaml` to match your actual headroom.
 
-Edit `config.yaml`:
+---
 
-```yaml
-server:
-  spt_path: "D:\\SPTarkov"
-  log_paths:
-    server: "D:\\SPTarkov\\BepInEx\\LogOutput.log"
-    fika: "D:\\SPTarkov\\user\\mods\\fika-server\\logs\\fika.log"
-```
+## Troubleshooting
 
-Restart the service to activate the Fika module.
+| Problem | Fix |
+|---------|-----|
+| "Python 3.12+ not found" | Install from [python.org](https://www.python.org/downloads/) (check "Add to PATH") |
+| Temps show "N/A" | Install [.NET 8 runtime](https://dotnet.microsoft.com/download/dotnet/8.0), then run `probe_temps.py` |
+| "Monitoring Degraded" pill | Check `data\raidwatch.log` or `curl http://localhost:8080/health` |
+| Can't access from another device | Verify firewall rule: `Get-NetFirewallRule -DisplayName "RaidWatch"` |
+| Fika not configured | Set `server.spt_path` in `data\config.yaml`, then `Restart-Service RaidWatch` |
+| Forgot token | It's in `data\config.yaml` → `auth.token` (ACL'd to Admins) |
 
-### Step 9 — Baseline + tune gates (D10)
+### Logs
 
-Gates ship with **conservative** thresholds. After observing a real raid:
+NSSM captures all output to `data\raidwatch.log` (auto-rotated at 10MB).
 
-1. Launch SPT + Fika, join a raid with bots.
-2. Watch CPU/RAM/storage gauges during bot spawns.
-3. Confirm conservative gates don't false-positive.
-4. Lower thresholds in `config.yaml` to your real headroom.
-
-Example tuning:
-```yaml
-gates:
-  ram_high:
-    threshold: 82         # lower from 90 after baselining
-  cpu_sustained:
-    threshold: 75         # lower from 88 after baselining
-```
-
-## Maintenance
-
-### Update
+### Manual operations
 
 ```powershell
-Stop-Service RaidWatch
-git pull  # or replace files
-pip install -U -r requirements.txt
-Start-Service RaidWatch
+Stop-Service RaidWatch      # stop
+Start-Service RaidWatch     # start
+Restart-Service RaidWatch   # restart
+Get-Service RaidWatch       # check status
 ```
-
-### Uninstall
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\uninstall_service.ps1
-```
-
-### Troubleshooting
-
-- **Logs:** NSSM captures stdout/stderr to `data/raidwatch.log` (D26).
-- **Health:** `curl http://localhost:8080/health` — check `collector.last_tick_age_seconds`.
-- **"Monitoring Degraded" pill:** collector is stale — check `/health` and service log.
-- **Temps N/A:** Run `probe_temps.py` as SYSTEM; verify .NET runtime + DLL path.
-- **Fika not configured:** Set `server.spt_path` in `config.yaml` and restart.
