@@ -185,28 +185,26 @@ if ($configContent -match "CHANGE_ME") {
     W-Green "  Token already configured (keeping existing)."
 }
 
-# -- 6. Quick foreground test (verify the app starts) ------------------------
+# -- 6. Verify the app imports (no port binding) --------------------------------
 W-Step "6" "Verifying the app starts..."
-W-Yellow "  Running a 5-second smoke test..."
-$testJob = Start-Job -ScriptBlock {
-    param($py, $dir)
-    Set-Location $dir
-    & $py -m raidwatch.main 2>&1  # runs once, we'll kill it
-} -ArgumentList $venvPython, $InstallDir
-
-Start-Sleep -Seconds 5
-# The app doesn't exit on its own (it's a server), so we stop the test job
-Stop-Job $testJob -ErrorAction SilentlyContinue
-$testOutput = Receive-Job $testJob -ErrorAction SilentlyContinue
-Remove-Job $testJob -Force -ErrorAction SilentlyContinue
-
-if ($testOutput -match "Traceback|Error|ImportError") {
-    W-Red "  The app failed to start:"
-    W-Red "  $($testOutput | Select-Object -First 5)"
-    W-Yellow "  Check that all dependencies installed correctly."
-    exit 1
+Push-Location $InstallDir
+try {
+    W-Yellow "  Checking Python imports..."
+    $importResult = & $venvPython -c "from raidwatch.main import app; print('OK')" 2>&1
+    if ($importResult -notmatch "OK") {
+        W-Red "  Import failed! Trying editable install..."
+        & $venvPython -m pip install -e . --quiet 2>&1 | Out-Null
+        $importResult = & $venvPython -c "from raidwatch.main import app; print('OK')" 2>&1
+        if ($importResult -notmatch "OK") {
+            W-Red "  Cannot import raidwatch after editable install."
+            W-Red "  Output: $importResult"
+            exit 1
+        }
+    }
+    W-Green "  Imports OK - all dependencies resolved."
+} finally {
+    Pop-Location
 }
-W-Green "  App starts successfully."
 
 # -- 7. Install NSSM service (D18) -------------------------------------------
 W-Step "7" "Installing Windows service..."
