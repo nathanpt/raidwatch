@@ -66,6 +66,69 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 }
 W-Green "  OK - running as Administrator."
 
+# -- 0b. Kill existing processes on port $Port --------------------------------
+W-Step "0b" "Checking for processes on port $Port..."
+$portProcs = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+if (-not $portProcs) {
+    # Fallback for older Windows / PS versions
+    $netstat = netstat -ano | Select-String ":$Port .*LISTENING"
+    if ($netstat) {
+        $pids = $netstat | ForEach-Object { ($_ -split "\s+")[-1].Trim() } | Sort-Object -Unique
+        $portProcs = $pids | ForEach-Object {
+            $procId = [int]$_
+            $proc = Get-Process -Id $procId -ErrorAction SilentlyContinue
+            if ($proc) {
+                [PSCustomObject]@{ OwningProcess = $procId; ProcessName = $proc.ProcessName; Path = $proc.Path }
+            }
+        }
+    }
+}
+
+if ($portProcs) {
+    # Deduplicate by PID
+    $portProcs = $portProcs | Sort-Object OwningProcess -Unique
+    $procsToKill = @()
+    foreach ($p in $portProcs) {
+        $procName = "unknown"
+        $procPath = ""
+        try {
+            $procInfo = Get-Process -Id $p.OwningProcess -ErrorAction Stop
+            $procName = $procInfo.ProcessName
+            $procPath = $procInfo.Path
+        } catch {}
+        W-Yellow "  Found: PID $($p.OwningProcess) ($procName) $procPath"
+        $procsToKill += [PSCustomObject]@{ PID = $p.OwningProcess; Name = $procName; Path = $procPath }
+    }
+
+    W-Cyan "`n  The port is in use. Options:"
+    W-Cyan "    [K] Kill all and continue (recommended)"
+    W-Cyan "    [S] Skip - continue anyway (install will likely fail)"
+    W-Cyan "    [C] Cancel install"
+    do {
+        $choice = Read-Host "  Kill existing processes on port $Port? (K/S/C)"
+    } while ($choice -notmatch '^[KkSsCc]$')
+
+    switch -Regex ($choice.ToUpper()) {
+        'K' {
+            foreach ($p in $procsToKill) {
+                W-Yellow "  Stopping PID $($p.PID) ($($p.Name))..."
+                Stop-Process -Id $p.PID -Force -ErrorAction SilentlyContinue
+            }
+            Start-Sleep -Seconds 2
+            W-Green "  Processes killed."
+        }
+        'C' {
+            W-Red "  Install cancelled."
+            exit 0
+        }
+        'S' {
+            W-Yellow "  Skipping - install may fail if the port is still in use."
+        }
+    }
+} else {
+    W-Green "  Port $Port is free."
+}
+
 # -- 1. Check Python 3.12+ ---------------------------------------------------
 W-Step "1" "Checking Python 3.12+..."
 $pythonCmd = $null
