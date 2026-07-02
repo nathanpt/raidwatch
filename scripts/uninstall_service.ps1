@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Uninstall the RaidWatch Windows service and clean up.
 
@@ -23,34 +23,41 @@ $nssm = Join-Path $InstallDir "nssm.exe"
 
 Write-Host "`n=== RaidWatch Service Uninstall ===" -ForegroundColor Cyan
 
-# 1. Stop the service via NSSM (Stop-Service hangs because Python has no console
-#    to receive Ctrl+C in service mode; NSSM's stop command handles this better)
+# Set ErrorActionPreference to Continue for the stop/remove section, because
+# NSSM writes to stderr (which PowerShell treats as an error) when the service
+# is in a zombie state. We handle errors explicitly below.
+$ErrorActionPreference = "Continue"
+
+# 1. Stop the service. Use sc.exe (more reliable than Stop-Service or nssm stop
+#    when the service is in a zombie/half-dead state after a force-kill).
 Write-Host "Stopping service..." -ForegroundColor Yellow
 $svc = Get-Service $ServiceName -ErrorAction SilentlyContinue
 if ($svc) {
-    if (Test-Path $nssm) {
-        & $nssm stop $ServiceName 2>&1 | Out-Null
-    }
-    Start-Sleep -Seconds 3
+    # Try sc.exe stop first (doesn't hang like Stop-Service)
+    Write-Host "  Sending stop control..." -ForegroundColor Gray
+    sc.exe stop $ServiceName 2>&1 | Out-Null
+    Start-Sleep -Seconds 2
 
-    # Check if it actually stopped; force-kill if still running
+    # Force-kill any python processes in the install dir
+    Get-Process python -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*$InstallDir*" } | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 1
+
+    # If still not stopped, use sc.exe to force-delete it
     $svc = Get-Service $ServiceName -ErrorAction SilentlyContinue
     if ($svc -and $svc.Status -ne 'Stopped') {
-        Write-Host "Service didn't stop gracefully, force-killing..." -ForegroundColor Yellow
-        Get-Process python -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*$InstallDir*" } | Stop-Process -Force -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 2
+        Write-Host "  Service stuck, will force-remove..." -ForegroundColor Yellow
     }
     Write-Host "Service stopped." -ForegroundColor Green
 }
 
-# 2. Remove NSSM service (D18)
-Write-Host "Removing NSSM service..." -ForegroundColor Yellow
-if (Test-Path $nssm) {
-    & $nssm remove $ServiceName confirm 2>&1 | Out-Null
-} else {
-    sc.exe delete $ServiceName | Out-Null
-}
+# 2. Remove the service. Use sc.exe delete (handles zombie services better than
+#    nssm remove). Marked for deletion -> removed after reboot if locked.
+Write-Host "Removing service..." -ForegroundColor Yellow
+sc.exe delete $ServiceName 2>&1 | Out-Null
+Start-Sleep -Seconds 1
 Write-Host "Service removed." -ForegroundColor Green
+
+$ErrorActionPreference = "Stop"
 
 # 3. Remove firewall rule (D11)
 Write-Host "Removing firewall rule..." -ForegroundColor Yellow

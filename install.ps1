@@ -207,16 +207,18 @@ W-Step "7" "Installing Windows service..."
 $nssm = Join-Path $InstallDir "nssm.exe"
 if (-not (Test-Path $nssm)) { W-Red "  nssm.exe not found at $nssm"; exit 1 }
 
-# Remove existing service if present
+# Remove existing service if present (tolerates zombie/half-dead states)
 $existing = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 if ($existing) {
-    W-Yellow "  Stopping existing service (force)..."
-    & $nssm stop $ServiceName 2>&1 | Out-Null
+    W-Yellow "  Stopping existing service..."
+    sc.exe stop $ServiceName 2>&1 | Out-Null
     Start-Sleep -Seconds 2
     # Force-kill any stragglers (Python may not respond to Ctrl+C in service mode)
     Get-Process python -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*$InstallDir*" } | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 1
     W-Yellow "  Removing existing service..."
-    & $nssm remove $ServiceName confirm 2>&1 | Out-Null
+    sc.exe delete $ServiceName 2>&1 | Out-Null
+    Start-Sleep -Seconds 1
 }
 
 & $nssm install $ServiceName $venvPython $mainScript
