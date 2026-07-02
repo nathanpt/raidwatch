@@ -20,12 +20,12 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from raidwatch import __version__
-from raidwatch.auth import COOKIE_NAME, handle_login_post, require_auth
+from raidwatch.auth import COOKIE_NAME, handle_login_post, require_auth, verify_token
 from raidwatch.broker import Broker
 from raidwatch.collector import Collector
 from raidwatch.config import AppConfig, load_config
@@ -125,10 +125,18 @@ def _register_routes(app: FastAPI) -> None:
         return resp
 
     # --- Dashboard ---
-    @app.get("/", response_class=HTMLResponse, dependencies=[Depends(require_auth)])
+    @app.get("/", response_class=HTMLResponse)
     async def dashboard(request: Request) -> HTMLResponse:
+        """Dashboard. Redirects to /login if not authenticated (D24).
+
+        Unlike API routes (which return 401 JSON), the HTML dashboard route
+        redirects browsers to the login page on missing/invalid cookie.
+        """
+        token = request.cookies.get(COOKIE_NAME)
+        config = request.app.state.config
+        if not verify_token(token, config.auth.token):
+            return RedirectResponse(url="/login", status_code=303)
         templates = app.state.templates
-        config: AppConfig = request.app.state.config
         return templates.TemplateResponse(
             request,
             "dashboard.html",

@@ -241,12 +241,12 @@ W-Green "  Config ACL'd to SYSTEM + Administrators only (D33)."
 
 # -- 9. Firewall rule (D11) --------------------------------------------------
 W-Step "9" "Creating firewall rule..."
-$remoteAddresses = @($LanSubnet, "100.64.0.0/10") -join ","
+$remoteAddresses = @($LanSubnet, "100.64.0.0/10")
 Get-NetFirewallRule -DisplayName "RaidWatch" -ErrorAction SilentlyContinue | Remove-NetFirewallRule
 New-NetFirewallRule -DisplayName "RaidWatch" `
     -Direction Inbound -LocalPort $Port -Protocol TCP `
     -Action Allow -RemoteAddress $remoteAddresses | Out-Null
-W-Green "  Firewall scoped to: $remoteAddresses"
+W-Green "  Firewall scoped to: $($remoteAddresses -join ', ')"
 
 # -- 10. Health watchdog (D27) -----------------------------------------------
 W-Step "10" "Registering health watchdog..."
@@ -259,11 +259,41 @@ if (`$resp.StatusCode -ne 200) {
 "@
 $watchdogFile = Join-Path $InstallDir "scripts\health_watchdog.ps1"
 $watchdogScript | Set-Content $watchdogFile
-$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$watchdogFile`""
-$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration (New-TimeSpan -Days 36500)
-$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
-$taskPrincipal = New-ScheduledTaskPrincipal -UserId "NT AUTHORITY\SYSTEM" -LogonType ServiceAccount -RunLevel Highest
-Register-ScheduledTask -TaskName "RaidWatchHealthWatchdog" -Action $action -Trigger $trigger -Settings $settings -Principal $taskPrincipal -Force | Out-Null
+
+# Register the watchdog via raw XML to avoid the RepetitionDuration max-value
+# limit in New-ScheduledTaskTrigger (36500 days exceeds Task Scheduler's cap).
+$taskXml = @"
+<Task xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <Triggers>
+    <TimeTrigger>
+      <Repetition>
+        <Interval>PT1M</Interval>
+      </Repetition>
+      <StartBoundary>$(Get-Date -Format 'yyyy-MM-ddTHH:mm:ss')</StartBoundary>
+      <Enabled>true</Enabled>
+    </TimeTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>S-1-5-18</UserId>
+      <RunLevel>HighestAvailable</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <AllowStartOnBattery>true</AllowStartOnBattery>
+    <DontStopIfGoingOnBatteries>true</DontStopIfGoingOnBatteries>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <ExecutionTimeLimit>PT5M</ExecutionTimeLimit>
+  </Settings>
+  <Actions>
+    <Exec>
+      <Command>powershell.exe</Command>
+      <Arguments>-NoProfile -ExecutionPolicy Bypass -File "$watchdogFile"</Arguments>
+    </Exec>
+  </Actions>
+</Task>
+"@
+Register-ScheduledTask -TaskName "RaidWatchHealthWatchdog" -Xml $taskXml -Force | Out-Null
 W-Green "  Watchdog registered (checks /health every 60s, restarts on failure)."
 
 # -- 11. Start the service ---------------------------------------------------
