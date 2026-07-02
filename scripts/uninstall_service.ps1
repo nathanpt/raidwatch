@@ -1,6 +1,6 @@
-﻿<#
+<#
 .SYNOPSIS
-    Uninstall the RaidWatch Windows service and clean up (reverse of install_service.ps1).
+    Uninstall the RaidWatch Windows service and clean up.
 
 .DESCRIPTION
     Removes the NSSM service, firewall rule, and health-watchdog Scheduled Task.
@@ -23,19 +23,30 @@ $nssm = Join-Path $InstallDir "nssm.exe"
 
 Write-Host "`n=== RaidWatch Service Uninstall ===" -ForegroundColor Cyan
 
-# 1. Stop the service
+# 1. Stop the service via NSSM (Stop-Service hangs because Python has no console
+#    to receive Ctrl+C in service mode; NSSM's stop command handles this better)
 Write-Host "Stopping service..." -ForegroundColor Yellow
 $svc = Get-Service $ServiceName -ErrorAction SilentlyContinue
 if ($svc) {
-    Stop-Service $ServiceName -Force
-    Start-Sleep -Seconds 2
+    if (Test-Path $nssm) {
+        & $nssm stop $ServiceName 2>&1 | Out-Null
+    }
+    Start-Sleep -Seconds 3
+
+    # Check if it actually stopped; force-kill if still running
+    $svc = Get-Service $ServiceName -ErrorAction SilentlyContinue
+    if ($svc -and $svc.Status -ne 'Stopped') {
+        Write-Host "Service didn't stop gracefully, force-killing..." -ForegroundColor Yellow
+        Get-Process python -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*$InstallDir*" } | Stop-Process -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+    }
     Write-Host "Service stopped." -ForegroundColor Green
 }
 
 # 2. Remove NSSM service (D18)
 Write-Host "Removing NSSM service..." -ForegroundColor Yellow
 if (Test-Path $nssm) {
-    & $nssm remove $ServiceName confirm
+    & $nssm remove $ServiceName confirm 2>&1 | Out-Null
 } else {
     sc.exe delete $ServiceName | Out-Null
 }

@@ -210,8 +210,12 @@ if (-not (Test-Path $nssm)) { W-Red "  nssm.exe not found at $nssm"; exit 1 }
 # Remove existing service if present
 $existing = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 if ($existing) {
+    W-Yellow "  Stopping existing service (force)..."
+    & $nssm stop $ServiceName 2>&1 | Out-Null
+    Start-Sleep -Seconds 2
+    # Force-kill any stragglers (Python may not respond to Ctrl+C in service mode)
+    Get-Process python -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*$InstallDir*" } | Stop-Process -Force -ErrorAction SilentlyContinue
     W-Yellow "  Removing existing service..."
-    if ($existing.Status -eq 'Running') { Stop-Service $ServiceName -Force }
     & $nssm remove $ServiceName confirm 2>&1 | Out-Null
 }
 
@@ -228,6 +232,11 @@ if ($existing) {
 # SCM recovery: restart on 1st/2nd/3rd failure (D18)
 & $nssm set $ServiceName AppExit Default Restart
 & $nssm set $ServiceName AppRestartDelay 5000
+# Stop method: skip Ctrl+C (no console in service mode) and go straight to
+# TerminateProcess. Without this, Stop-Service hangs because NSSM waits for a
+# Ctrl+C response that the headless Python process can't receive.
+& $nssm set $ServiceName AppStopMethodSkip 1
+& $nssm set $ServiceName AppStopMethodWindow 2000
 W-Green "  Service installed (running as SYSTEM)."
 
 # -- 8. ACL config.yaml to SYSTEM + Administrators (D33) ---------------------
