@@ -274,23 +274,35 @@ W-Step "7" "Installing Windows service..."
 $nssm = Join-Path $InstallDir "nssm.exe"
 if (-not (Test-Path $nssm)) { W-Red "  nssm.exe not found at $nssm"; exit 1 }
 
-# Remove existing service if present (tolerates zombie/half-dead states)
+# Handle existing service: reconfigure in-place (never delete during reinstall,
+# because sc.exe delete marks for deletion and Windows holds a lock that can
+# require a reboot to release, causing a zombie state that blocks re-install).
 $existing = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 if ($existing) {
     W-Yellow "  Stopping existing service..."
+    & $nssm stop $ServiceName 2>&1 | Out-Null
     sc.exe stop $ServiceName 2>&1 | Out-Null
     Start-Sleep -Seconds 2
-    # Force-kill any stragglers (Python may not respond to Ctrl+C in service mode)
     Get-Process python -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "*$InstallDir*" } | Stop-Process -Force -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 1
-    W-Yellow "  Removing existing service..."
-    sc.exe delete $ServiceName 2>&1 | Out-Null
-    Start-Sleep -Seconds 1
+
+    # Check if stuck in "marked for deletion" (needs reboot to clear)
+    $svcKey = Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\$ServiceName" -ErrorAction SilentlyContinue
+    if ($svcKey -and $svcKey.DeleteFlag -gt 0) {
+        W-Red "  Service is marked for deletion (from a previous sc.exe delete)."
+        W-Red "  Windows will not remove it until you reboot."
+        W-Red "  Please reboot, then re-run: .\install.ps1"
+        exit 1
+    }
+
+    W-Yellow "  Reconfiguring existing service in-place..."
+    & $nssm set $ServiceName Application $venvPython 2>&1 | Out-Null
+} else {
+    W-Yellow "  Installing new service..."
+    & $nssm install $ServiceName $venvPython 2>&1 | Out-Null
 }
 
-# Use `-m raidwatch.main` (not the .py path) so Python resolves the package
-# via AppDirectory, which is more reliable than relying on the editable install.
-& $nssm install $ServiceName $venvPython
+# Set/update all parameters (works for both fresh install and reconfigure)
 & $nssm set $ServiceName AppParameters "-m raidwatch.main"
 & $nssm set $ServiceName AppDirectory $InstallDir
 # Run as SYSTEM (needed for LHM kernel driver; D9/D31)

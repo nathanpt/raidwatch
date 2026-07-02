@@ -50,10 +50,14 @@ if ($svc) {
     Write-Host "Service stopped." -ForegroundColor Green
 }
 
-# 2. Remove the service. Use sc.exe delete (handles zombie services better than
-#    nssm remove). Marked for deletion -> removed after reboot if locked.
+# 2. Remove the service via NSSM (not sc.exe delete, which can leave a zombie
+#    "marked for deletion" state requiring a reboot to clear).
 Write-Host "Removing service..." -ForegroundColor Yellow
-sc.exe delete $ServiceName 2>&1 | Out-Null
+if (Test-Path $nssm) {
+    & $nssm remove $ServiceName confirm 2>&1 | Out-Null
+} else {
+    sc.exe delete $ServiceName 2>&1 | Out-Null
+}
 Start-Sleep -Seconds 1
 Write-Host "Service removed." -ForegroundColor Green
 
