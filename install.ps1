@@ -297,10 +297,10 @@ if ($generatedToken) {
 }
 
 W-Cyan "`n  Optional next steps:"
-W-Host "    • CPU temps:   python scripts\probe_temps.py  (then enable cpu_thermal gate)"
-W-Host "    • Fika setup:   python scripts\discover_processes.py  (fill headless pattern)"
-W-Host "    • Tune gates:   edit data\config.yaml after baselining a raid"
-W-Host ""
-W-Host "  Logs: data\raidwatch.log"
-W-Host "  Uninstall: .\install.ps1 -Uninstall"
+Write-Host "    • CPU temps:   python scripts\probe_temps.py  (then enable cpu_thermal gate)"
+Write-Host "    • Fika setup:   python scripts\discover_processes.py  (fill headless pattern)"
+Write-Host "    • Tune gates:   edit data\config.yaml after baselining a raid"
+Write-Host ""
+Write-Host "  Logs: data\raidwatch.log"
+Write-Host "  Uninstall: .\install.ps1 -Uninstall"
 W-Cyan "═══════════════════════════════════════════════════════════════`n"

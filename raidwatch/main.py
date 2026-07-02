@@ -235,3 +235,23 @@ def _register_routes(app: FastAPI) -> None:
 
 # Module-level app instance for ``uvicorn raidwatch.main:app``.
 app = create_app()
+
+
+def main() -> None:
+    """Entry point for NSSM / ``python main.py``.
+
+    Reads bind_host/port from config, defaults to 0.0.0.0:8080 (D11).
+    """
+    import uvicorn
+
+    config = load_config()
+    uvicorn.run(
+        app,
+        host=config.server.bind_host,
+        port=config.server.port,
+        log_level="info",
+    )
+
+
+if __name__ == "__main__":
+    main()
