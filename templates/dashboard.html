@@ -82,11 +82,15 @@
                     <option value="1440">24h</option>
                 </select>
             </div>
-            <canvas id="chart-cpu" height="160"></canvas>
+            <div style="height:160px">
+                <canvas id="chart-cpu"></canvas>
+            </div>
         </div>
         <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
             <h3 class="text-slate-300 text-sm mb-2">RAM % (last hour)</h3>
-            <canvas id="chart-ram" height="160"></canvas>
+            <div style="height:160px">
+                <canvas id="chart-ram"></canvas>
+            </div>
         </div>
     </div>
 
@@ -94,11 +98,15 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
             <h3 class="text-slate-300 text-sm mb-2">Disk I/O (KB/s)</h3>
-            <canvas id="chart-disk" height="120"></canvas>
+            <div style="height:120px">
+                <canvas id="chart-disk"></canvas>
+            </div>
         </div>
         <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
             <h3 class="text-slate-300 text-sm mb-2">Network (KB/s)</h3>
-            <canvas id="chart-net" height="120"></canvas>
+            <div style="height:120px">
+                <canvas id="chart-net"></canvas>
+            </div>
         </div>
     </div>
 
