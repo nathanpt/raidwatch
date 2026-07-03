@@ -72,28 +72,19 @@ if ($h) {
 }
 
 # --- current snapshot (raw, not envelope-wrapped) ---
-# WHEA is polled by the collector only every ~60s; other cycles set
-# whea_count_2h to null. Poll up to ~75s to land on a WHEA cycle so the
-# WHEA result is definitive rather than a cadence false-negative.
+# WHEA is retained between polls, so a single read shows it. Retry briefly
+# only to handle the startup race before the first collector cycle.
 Write-Host ""
-Write-Host "fetching snapshot (up to ~75s while waiting for a WHEA poll cycle)..." -ForegroundColor Cyan
-$best   = $null
-$gotWhea = $false
-for ($i = 0; $i -lt 16; $i++) {
+Write-Host "fetching snapshot ..." -ForegroundColor Cyan
+$s = $null
+for ($i = 0; $i -lt 12; $i++) {
     $r = Get-Json "/api/metrics/current"
-    if ($r -and $r.ok -ne $false) {
-        $best = $r
-        if ($null -ne $r.system.whea_count_2h) { $gotWhea = $true; break }
-    }
-    Start-Sleep -Seconds 5
+    if ($r -and $r.ok -ne $false) { $s = $r; break }
+    Start-Sleep -Seconds 2
 }
-$s = $best
 if (-not $s) {
     Write-Host "no snapshot yet (collector may still be starting)." -ForegroundColor Yellow
     return
-}
-if (-not $gotWhea) {
-    Write-Host "  (no WHEA cycle seen in 75s -- if null below, it is a real failure, not cadence)" -ForegroundColor DarkYellow
 }
 $sys = $s.system
 

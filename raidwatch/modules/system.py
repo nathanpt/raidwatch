@@ -36,6 +36,9 @@ except ImportError:
 
 # Track last WHEA poll time so we only re-query the event log every whea_poll_seconds.
 _last_whea_poll_monotonic: float = 0.0
+# Cache of the most recent WHEA count so it stays visible between ~60s polls
+# (otherwise the count is null on 11/12 cycles and looks unavailable; D16).
+_last_whea_count: int | None = None
 
 
 # --------------------------------------------------------------------------- #
@@ -301,7 +304,7 @@ def gather(*, whea_interval_seconds: float = 60.0) -> dict[str, Any]:
     Each sub-source is isolated; a failure yields ``None`` for that key only.
     WHEA is polled at most every ``whea_interval_seconds`` (D7/D16).
     """
-    global _last_whea_poll_monotonic
+    global _last_whea_poll_monotonic, _last_whea_count
 
     metrics: dict[str, Any] = {}
     metrics.update(_gather_cpu())
@@ -311,12 +314,16 @@ def gather(*, whea_interval_seconds: float = 60.0) -> dict[str, Any]:
     metrics.update(_gather_net())
     metrics.update(_gather_win32_perfmon())
 
-    # WHEA polled less frequently than the 5s core (D7/D16).
+    # WHEA polled less frequently than the 5s core (D7/D16). Retain the last
+    # good count between polls so the metric stays available on every cycle
+    # (the 2h-windowed count is slow-moving; ~60s stale beats null 91% of the
+    # time, and a failed poll is still logged inside gather_whea).
     now_mono = time.monotonic()
     if now_mono - _last_whea_poll_monotonic >= whea_interval_seconds:
         _last_whea_poll_monotonic = now_mono
-        metrics.update(gather_whea())
-    else:
-        metrics["whea_count_2h"] = None  # not polled this cycle
+        fresh = gather_whea()
+        if fresh["whea_count_2h"] is not None:
+            _last_whea_count = fresh["whea_count_2h"]
+    metrics["whea_count_2h"] = _last_whea_count
 
     return metrics
