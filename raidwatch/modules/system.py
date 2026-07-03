@@ -12,6 +12,7 @@ Collection cadence:
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import time
 from typing import Any
@@ -171,53 +172,62 @@ def _gather_net() -> dict[str, Any]:
 # pywin32 PerfMon counters (Windows only; D7)                                #
 # --------------------------------------------------------------------------- #
 def _gather_win32_perfmon() -> dict[str, Any]:
-    """Disk queue length, avg sec/transfer, pages/sec via win32pdh (D7)."""
+    """Disk queue length, avg sec/transfer, pages/sec via win32pdh (D7).
+
+    Rate/average counters (Avg. Disk sec/Transfer, Pages/sec) require TWO
+    ``CollectQueryData`` samples for PDH to compute a value; a single sample
+    raises ``PDH_CALC_NEGATIVE_DENOMINATOR``. All counters share one query:
+    add them, collect, wait briefly, collect again, then read each. Each value
+    read is isolated (D8) so one bad counter can't blank the others.
+    """
     if not _WIN32_AVAILABLE:
         return {
             "disk_queue_length": None,
             "disk_avg_sec_per_transfer": None,
             "pages_per_sec": None,
         }
-    out: dict[str, Any] = {}
-    try:
-        out["disk_queue_length"] = _read_pdh_counter(
-            r"\PhysicalDisk(_Total)\Current Disk Queue Length"
-        )
-    except Exception:
-        logger.exception("win32pdh disk queue failed")
-        out["disk_queue_length"] = None
-    try:
-        out["disk_avg_sec_per_transfer"] = _read_pdh_counter(
-            r"\PhysicalDisk(_Total)\Avg. Disk sec/Transfer"
-        )
-    except Exception:
-        logger.exception("win32pdh avg sec/transfer failed")
-        out["disk_avg_sec_per_transfer"] = None
-    try:
-        out["pages_per_sec"] = _read_pdh_counter(r"\Memory\Pages/sec")
-    except Exception:
-        logger.exception("win32pdh pages/sec failed")
-        out["pages_per_sec"] = None
-    return out
 
+    paths = {
+        "disk_queue_length": r"\PhysicalDisk(_Total)\Current Disk Queue Length",
+        "disk_avg_sec_per_transfer": r"\PhysicalDisk(_Total)\Avg. Disk sec/Transfer",
+        "pages_per_sec": r"\Memory\Pages/sec",
+    }
+    out: dict[str, Any] = dict.fromkeys(paths)
 
-def _read_pdh_counter(path: str) -> float | None:
-    """Read a single Windows PerfMon counter value via win32pdh (D7)."""
-    import win32pdh  # type: ignore[import-not-found]
-
-    # win32pdh path: (machine, object_name, counter_name, instance, parent, instance_index)
-    # Easiest: use CollectQueryData with a counter path.
-    query = win32pdh.OpenQuery()
     try:
-        counter = win32pdh.AddCounter(query, path)
+        import win32pdh  # type: ignore[import-not-found]
+
+        query = win32pdh.OpenQuery()
+        counters: dict[str, Any] = {}
         try:
+            for key, path in paths.items():
+                try:
+                    counters[key] = win32pdh.AddCounter(query, path)
+                except Exception:
+                    logger.exception("win32pdh AddCounter failed: %s", path)
+
+            # Two samples so rate/average counters can compute (D7).
             win32pdh.CollectQueryData(query)
-            _msg_type, value = win32pdh.GetFormattedCounterValue(counter, win32pdh.PDH_FMT_DOUBLE)
-            return float(value)
+            time.sleep(0.1)
+            win32pdh.CollectQueryData(query)
+
+            for key, handle in counters.items():
+                try:
+                    _msg_type, value = win32pdh.GetFormattedCounterValue(
+                        handle, win32pdh.PDH_FMT_DOUBLE
+                    )
+                    out[key] = float(value)
+                except Exception:
+                    logger.exception("win32pdh GetFormattedCounterValue failed: %s", paths[key])
         finally:
-            win32pdh.RemoveCounter(counter)
-    finally:
-        win32pdh.CloseQuery(query)
+            for handle in counters.values():
+                with contextlib.suppress(Exception):
+                    win32pdh.RemoveCounter(handle)
+            with contextlib.suppress(Exception):
+                win32pdh.CloseQuery(query)
+    except Exception:
+        logger.exception("win32pdh query setup failed")
+    return out
 
 
 # --------------------------------------------------------------------------- #
