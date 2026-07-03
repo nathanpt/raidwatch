@@ -194,6 +194,21 @@ try {
     Pop-Location
 }
 W-Green "  Dependencies installed."
+# -- 3b. Windows-only deps (pywin32/pythonnet) + pywin32 postinstall (D7/D9) -
+# requirements.txt is platform-neutral (generated on Linux); ensure the
+# Windows-only deps are present and pywin32's DLLs are registered so WHEA,
+# disk queue, pages/sec, and temps actually work.
+W-Yellow "  Ensuring Windows-only deps (pywin32, pythonnet)..."
+& $venvPython -m pip install "pywin32>=306" "pythonnet>=3.0" --quiet 2>&1 | ForEach-Object {
+    if ($_ -match "error|Error") { W-Red "  $_" }
+}
+$postinstall = Join-Path $InstallDir ".venv\Scripts\pywin32_postinstall.py"
+if (Test-Path $postinstall) {
+    & $venvPython $postinstall -install 2>&1 | Out-Null
+    W-Green "  pywin32 postinstall complete."
+} else {
+    W-Yellow "  pywin32_postinstall.py not found (skipping; usually optional)."
+}
 
 # -- 4. Prompt for LAN subnet (firewall scope; D11) --------------------------
 W-Step "4" "Configuring firewall scope..."
