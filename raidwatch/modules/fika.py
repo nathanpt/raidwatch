@@ -31,6 +31,11 @@ logger = logging.getLogger(__name__)
 # Keep last N events in memory for the Recent Events feed.
 _MAX_INMEMORY_EVENTS = 200
 
+# Conventional paths derived from server.headless_path (Fika headless layout).
+_BOOT_CONFIG_REL = "EscapeFromTarkov_Data/boot.config"
+_FIKA_CORE_CFG_REL = "BepInEx/config/com.fika.core.cfg"
+_BEPINEX_PLUGINS_REL = "BepInEx/plugins"
+
 
 class FikaModule:
     """Collects Fika/SPT context: processes, config, and decorative log events (D3/D4/D17)."""
@@ -52,6 +57,15 @@ class FikaModule:
         self._config_summary: FikaConfigSummary | None = None
         self._last_config_read = 0.0
 
+        # Headless health sources derive from server.headless_path (Fika layout).
+        self._headless_path = config.server.headless_path
+        self._raid_udp_port = config.server.raid_udp_port
+        self._risky_mod_names = [n.lower() for n in config.server.risky_mod_names]
+
+        # Crash detection: cross-cycle in-memory state (#5a).
+        self._ever_seen_headless = False
+        self._headless_zero_streak = 0
+
         # Consecutive failure counter for backoff (D8)
         self.consecutive_failures = 0
 
@@ -69,6 +83,30 @@ class FikaModule:
         headless_cpu_total = sum(p.cpu_percent or 0 for p in headless_procs)
         headless_rss_total = sum(p.rss_bytes or 0 for p in headless_procs)
 
+        # Crash detection (D8-isolated by construction — pure int/bool ops).
+        # spt_server.pid present means SPT is up; a 2-cycle headless-zero streak
+        # after we've ever seen headless => headless crashed (#5a).
+        spt_up = spt_proc.pid is not None
+        if headless_count > 0:
+            self._ever_seen_headless = True
+            self._headless_zero_streak = 0
+        elif spt_up:
+            self._headless_zero_streak += 1
+        else:
+            self._headless_zero_streak = 0
+        headless_crashed = (
+            spt_up
+            and headless_count == 0
+            and self._ever_seen_headless
+            and self._headless_zero_streak >= 2
+        )
+
+        # Headless health sources (each internally D8-isolated).
+        boot_job_worker_count, boot_optimized, boot_expected_workers = self._read_boot_config()
+        force_ip_set = self._read_force_ip()
+        raid_udp_port_open = self._check_udp_port()
+        risky_mods = self._scan_risky_mods()
+
         return FikaMetrics(
             spt_server=spt_proc,
             headless=headless_procs,
@@ -77,6 +115,13 @@ class FikaModule:
             headless_rss_total=headless_rss_total,
             config_summary=config_summary,
             events_recent=events,
+            boot_job_worker_count=boot_job_worker_count,
+            boot_optimized=boot_optimized,
+            boot_expected_workers=boot_expected_workers,
+            force_ip_set=force_ip_set,
+            raid_udp_port_open=raid_udp_port_open,
+            headless_crashed=headless_crashed,
+            risky_mods=risky_mods,
         )
 
     # ------------------------------------------------------------------ #
@@ -164,6 +209,98 @@ class FikaModule:
             self._config_summary = FikaConfigSummary()
 
         return self._config_summary
+
+    # ------------------------------------------------------------------ #
+    # Headless health sources (#3/#4/#5)                                #
+    # ------------------------------------------------------------------ #
+    def _read_boot_config(self) -> tuple[int | None, bool, int | None]:
+        """Parse headless boot.config threading flags (#3).
+
+        Returns ``(job_worker_count, optimized, expected_workers)``.
+        """
+        if not self._headless_path:
+            return None, False, None
+        path = Path(self._headless_path) / _BOOT_CONFIG_REL
+        try:
+            if not path.exists():
+                return None, False, None
+            kv: dict[str, str] = {}
+            for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+                if not line.strip() or "=" not in line:
+                    continue  # skip blank + malformed lines (boot.config has no comments)
+                key, _, value = line.partition("=")
+                kv[key.strip()] = value.strip()
+
+            job: int | None = None
+            if "job-worker-count" in kv:
+                with contextlib.suppress(ValueError):
+                    job = int(kv["job-worker-count"])
+
+            optimized = (
+                kv.get("gfx-enable-gfx-jobs") == "1"
+                and kv.get("gfx-enable-native-gfx-jobs") == "1"
+                and kv.get("gfx-disable-mt-rendering") == "1"
+                and "job-worker-count" in kv
+                and "gc-max-time-slice" in kv  # value ignored — tuning int
+            )
+
+            try:
+                expected = psutil.cpu_count(logical=True) - 1
+            except Exception:
+                expected = None
+            return job, optimized, expected
+        except Exception:
+            logger.debug("boot.config read failed for %s", path, exc_info=True)
+            return None, False, None
+
+    def _read_force_ip(self) -> bool:
+        """True iff Force IP is populated in com.fika.core.cfg (#4)."""
+        if not self._headless_path:
+            return False
+        path = Path(self._headless_path) / _FIKA_CORE_CFG_REL
+        try:
+            if not path.exists():
+                return False
+            kv: dict[str, str] = {}
+            line_re = re.compile(r"^\s*([^=#]\S.*?\S?)\s*=\s*(.*)$")
+            for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+                if not line.strip() or line.lstrip().startswith("#"):
+                    continue
+                m = line_re.match(line)
+                if m:
+                    kv[m.group(1).strip().lower()] = m.group(2).strip()
+            return bool(kv.get("force ip"))
+        except Exception:
+            logger.debug("Force-IP read failed for %s", path, exc_info=True)
+            return False
+
+    def _check_udp_port(self) -> bool:
+        """True iff the configured UDP raid port is bound/listening (#4)."""
+        try:
+            conns = psutil.net_connections(kind="udp")
+            return any(c.laddr and c.laddr.port == self._raid_udp_port for c in conns)
+        except (psutil.AccessDenied, psutil.Error, OSError):
+            return False
+
+    def _scan_risky_mods(self) -> list[str]:
+        """Scan headless BepInEx/plugins for names matching risky_mod_names (#5)."""
+        if not self._headless_path or not self._risky_mod_names:
+            return []
+        path = Path(self._headless_path) / _BEPINEX_PLUGINS_REL
+        try:
+            if not path.is_dir():
+                return []
+            matches: set[str] = set()
+            for entry in path.rglob("*"):
+                name = entry.name.lower()
+                if any(token in name for token in self._risky_mod_names):
+                    matches.add(entry.name)
+                    if len(matches) >= 50:
+                        break
+            return sorted(matches)
+        except Exception:
+            logger.debug("Risky-mod scan failed for %s", path, exc_info=True)
+            return []
 
     # ------------------------------------------------------------------ #
     # Log tail (D17 — periodic, rotation-safe, in-memory offsets)        #

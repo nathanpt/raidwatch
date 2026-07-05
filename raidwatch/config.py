@@ -43,8 +43,11 @@ class ServerConfig(BaseModel):
     log_paths: dict[str, str] = Field(default_factory=dict)
     bind_host: str = "0.0.0.0"
     port: int = 8080
+    headless_path: str = ""
+    raid_udp_port: int = 25565
+    risky_mod_names: list[str] = Field(default_factory=list)
 
-    @field_validator("port")
+    @field_validator("port", "raid_udp_port")
     @classmethod
     def _valid_port(cls, v: int) -> int:
         if not 1 <= v <= 65535:

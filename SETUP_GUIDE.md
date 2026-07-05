@@ -89,7 +89,7 @@ the gauges and lower thresholds in `config.yaml` to match your actual headroom.
 | Problem | Fix |
 |---------|-----|
 | "Python 3.12+ not found" | Install from [python.org](https://www.python.org/downloads/) (check "Add to PATH") |
-| Temps show "N/A" | Install [.NET 8 runtime](https://dotnet.microsoft.com/download/dotnet/8.0), then run `probe_temps.py` |
+| Temps show "N/A" | Needs .NET Framework 4.8+ (built into Windows 11) + the service running as SYSTEM. Confirm with `python scripts\probe_temps.py`, then set `temps.cpu_sensor_name` in `config.yaml` |
 | "Monitoring Degraded" pill | Check `data\raidwatch.log` or `curl http://localhost:8080/health` |
 | Can't access from another device | Verify firewall rule: `Get-NetFirewallRule -DisplayName "RaidWatch"` |
 | Fika not configured | Set `server.spt_path` in `data\config.yaml`, then `Restart-Service RaidWatch` |

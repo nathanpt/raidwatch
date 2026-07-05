@@ -13,6 +13,17 @@ server:
     watchdog: "%APPDATA%\\WATCHDOG"
   bind_host: "0.0.0.0"   # firewall scopes reachability (D11)
   port: 8080
+  # Headless client install root (separate EFT instance). Fika health sources
+  # derive from this via conventional paths; leave blank to disable (D23):
+  #   <headless_path>/EscapeFromTarkov_Data/boot.config
+  #   <headless_path>/BepInEx/config/com.fika.core.cfg
+  #   <headless_path>/BepInEx/plugins
+  headless_path: ""
+  raid_udp_port: 25565        # Fika UDP raid port (default 25565)
+  # Substrings (case-insensitive) of headless BepInEx plugin names known to
+  # crash the headless client (graphics/post-FX/audio mods, e.g. amands/realism).
+  # Empty = no scan; populate with your known-bad mods on the host.
+  risky_mod_names: []
 
 processes:
   # Config-driven discovery (D4). Run `scripts/discover_processes.py` to confirm.

@@ -19,6 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from raidwatch.config import load_config
+from raidwatch.modules import temps as temps_mod
 from raidwatch.modules.temps import enumerate_sensors
 
 
@@ -35,16 +36,30 @@ def main() -> int:
         print("\n  ⚠ This script must be run on the Windows host (needs LHM + .NET).")
         print("  Cannot probe sensors on Linux/non-Windows.")
         return 1
+    # Pre-flight diagnostics (D9) - surface common failures before LHM init so a
+    # single run pinpoints the cause (DLL missing, pythonnet absent, etc.).
+    dll_resolved = Path(dll_path).resolve()
+    print(f"\n  pythonnet (clr)  : {'available' if temps_mod._PYTHONNET_AVAILABLE else 'NOT importable'}")
+    print(f"  DLL resolved     : {dll_resolved}")
+    print(f"  DLL exists       : {'yes' if dll_resolved.exists() else 'NO (file not found)'}")
 
     print("\n  Enumerating CPU temperature sensors...\n")
     sensors = enumerate_sensors(dll_path)
 
     if not sensors:
-        print("  ⚠ No temperature sensors found. Possible causes:")
-        print("    - LHM DLL not at the configured path")
-        print("    - .NET runtime not installed (D30)")
-        print("    - Not running as SYSTEM/Admin (WinRing0 needs privilege; D9)")
-        print(f"\n  Check: {Path(dll_path).resolve()}")
+        print("  [FAIL] No temperature sensors returned.\n")
+        # Surface the actual init failure captured by _init_lhm (D9).
+        if temps_mod._last_init_error:
+            print(f"  LHM init error: {temps_mod._last_init_error}\n")
+        elif temps_mod._lhm_computer is not None:
+            print("  LHM initialized OK but the hardware exposed no Temperature sensors.")
+            print("  Unusual: confirm the CPU is supported by this LHM build.\n")
+        else:
+            print("  LHM init recorded no specific error. Likely a privilege/driver issue.\n")
+        print("  Possible causes:")
+        print("    - LHM DLL or a dependency missing (the init error above names which)")
+        print("    - Not running as SYSTEM/Admin (PawnIO driver needs privilege; D9)")
+        print("    - .NET Framework 4.8 not installed (D30)")
         return 1
 
     print(f"  {'Name':<25} {'Value':>8}  {'Identifier'}")

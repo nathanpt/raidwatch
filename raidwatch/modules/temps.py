@@ -33,6 +33,9 @@ except ImportError:
 _lhm_computer: Any = None
 _lhm_initialized = False
 _consecutive_failures = 0
+# Last LHM init failure, surfaced by probe_temps.py for one-paste diagnosis (D9).
+# None if init succeeded or was never attempted; a human-readable string otherwise.
+_last_init_error: str | None = None
 
 
 def _init_lhm(dll_path: str) -> bool:
@@ -41,12 +44,19 @@ def _init_lhm(dll_path: str) -> bool:
     Loads the vendored DLL via pythonnet, creates a Computer instance, enables
     CPU/GPU/HDD sensors, and opens the connection (loads the WinRing0 driver).
     """
-    global _lhm_computer, _lhm_initialized
+    global _lhm_computer, _lhm_initialized, _last_init_error
 
     if _lhm_initialized:
         return _lhm_computer is not None
 
+    # Fresh attempt; clear any stale error from a prior probe run.
+    _last_init_error = None
     if not _PYTHONNET_AVAILABLE:
+        _last_init_error = (
+            "pythonnet (clr) not importable on this platform. "
+            "On Windows: run scripts/install_win_deps.ps1. "
+            "On Linux: temps are unsupported (degraded mode)."
+        )
         logger.info("pythonnet not available — temps disabled")
         _lhm_initialized = True
         return False
@@ -71,7 +81,8 @@ def _init_lhm(dll_path: str) -> bool:
         logger.info("LHM initialized from %s", dll_path)
         return True
 
-    except Exception:
+    except Exception as exc:
+        _last_init_error = f"{type(exc).__name__}: {exc}"
         logger.exception("LHM initialization failed — temps will be unavailable (D8)")
         _lhm_initialized = True
         _lhm_computer = None

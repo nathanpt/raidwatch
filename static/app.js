@@ -17,6 +17,8 @@ let diskChart = null;
 let netChart = null;
 let eventSource = null;
 let startedAt = null;
+let lastHealth = null;     // most recent /health result (staleness source for D22 pill)
+let activeGates = [];      // most recent /api/gates active (triggered) list
 
 // --- Init ---
 document.addEventListener("DOMContentLoaded", () => {
@@ -26,6 +28,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initKeyboard();
     initTheme();
     fetchHealth();
+    fetchGates();
     document.getElementById("footer-version").textContent = "v" + (window.RW_VERSION || "0.1.0");
 });
 
@@ -113,6 +116,7 @@ function connectSSE() {
     eventSource.onopen = () => {
         console.log("SSE connected");
         fetchHealth();
+        fetchGates();
     };
     eventSource.onerror = () => {
         console.log("SSE error — EventSource auto-reconnects");
@@ -132,7 +136,7 @@ function updateUI(snap) {
     const self = snap.self || {};
 
     // Status pill
-    updateStatusPill(snap);
+    updateStatusPill();
 
     // CPU
     if (sys.cpu_total_percent != null) {
@@ -235,40 +239,74 @@ function setGauge(id, value, max) {
     el.setAttribute("stroke", color);
 }
 
-// --- Status pill (D22: stale > High gate > Medium gate > Operational) ---
-function updateStatusPill(snap) {
+// --- Status pill (D22: stale-core > High gate > Medium gate > Operational) ---
+// Mirrors raidwatch/gates.py compute_status_pill(). Pill state derives from the
+// cached /health (staleness) and /api/gates (triggered severity) — one source of truth.
+function setStatusPill(statusClass, label) {
     const pill = document.getElementById("status-pill");
     if (!pill) return;
-    const self = snap.self || {};
-    const age = self.cycle_ms != null ? null : null;
-    pill.className = "px-3 py-1 rounded-full text-xs md:text-sm font-medium border";
+    const colors = {
+        critical:    ["bg-red-900/50",   "text-red-300",   "border-red-700"],
+        degraded:    ["bg-amber-900/50", "text-amber-300", "border-amber-700"],
+        operational: ["bg-green-900/50", "text-green-300", "border-green-700"],
+    };
+    const tokens = colors[statusClass] || colors.operational;
+    pill.className = "px-3 py-1 rounded-full text-xs md:text-sm font-medium border " + tokens.join(" ");
+    pill.textContent = label;
+}
 
-    // For now: operational unless we detect issues from /health
-    pill.classList.add("bg-green-900/50", "text-green-300", "border-green-700");
-    pill.textContent = "Operational";
+function updateStatusPill() {
+    // Wait for the first /health before driving the pill (preserves the initial
+    // "Connecting…" state until real staleness data is available).
+    if (lastHealth == null) return;
+
+    const c = lastHealth.collector || {};
+    const stale = lastHealth.status === "critical" ||
+        (c.last_tick_age_seconds != null && c.last_tick_age_seconds > 15);
+    if (stale) {
+        setStatusPill("critical", "Monitoring Degraded");
+        return;
+    }
+    const high = activeGates.find(g => g.severity === "high");
+    if (high) {
+        setStatusPill("critical", "Critical: " + high.gate_id);
+        return;
+    }
+    const medium = activeGates.find(g => g.severity === "medium");
+    if (medium) {
+        setStatusPill("degraded", "Degraded: " + medium.gate_id);
+        return;
+    }
+    setStatusPill("operational", "Operational");
 }
 
 async function fetchHealth() {
     try {
         const resp = await fetch("/health");
         const h = await resp.json();
+        lastHealth = h;                       // staleness source for the D22 pill
         window.RW_VERSION = h.version;
         startedAt = h.started_at;
-        const pill = document.getElementById("status-pill");
-        const age = h.collector?.last_tick_age_seconds;
-        if (age != null && age > 15) {
-            pill.className = "px-3 py-1 rounded-full text-xs md:text-sm font-medium border bg-red-900/50 text-red-300 border-red-700";
-            pill.textContent = "Monitoring Degraded";
-        } else if (h.status === "operational") {
-            pill.className = "px-3 py-1 rounded-full text-xs md:text-sm font-medium border bg-green-900/50 text-green-300 border-green-700";
-            pill.textContent = "Operational";
-        }
         if (startedAt) {
             const uptime = Math.floor((Date.now() - startedAt) / 1000);
             const h2 = Math.floor(uptime / 3600), m = Math.floor((uptime % 3600) / 60);
             document.getElementById("uptime-hint").textContent = `↑ ${h2}h ${m}m`;
         }
+        updateStatusPill();
     } catch (e) { /* server may be starting */ }
+}
+
+// --- Gates (D22: triggered severity feeds the status pill) ---
+async function fetchGates() {
+    try {
+        const resp = await fetch("/api/gates", { credentials: "same-origin" });
+        // 401/403: auth required — the page may redirect to login; stay silent.
+        if (resp.status === 401 || resp.status === 403) return;
+        if (!resp.ok) return;
+        const data = await resp.json();
+        activeGates = Array.isArray(data.active) ? data.active : [];
+        updateStatusPill();
+    } catch (e) { /* network error — keep last known gates */ }
 }
 
 // --- Actions ---
@@ -280,6 +318,7 @@ function exportCSV() {
 function refreshNow() {
     loadHistory();
     fetchHealth();
+    fetchGates();
     toast("Refreshed", "success");
 }
 

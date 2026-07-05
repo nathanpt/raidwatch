@@ -12,6 +12,7 @@ from raidwatch.config import (
     AppConfig,
     GateConfig,
     ProcessesConfig,
+    ServerConfig,
     load_config,
 )
 
@@ -166,3 +167,25 @@ class TestRoundTrip:
         path = _write_config(tmp_path, data)
         with pytest.raises(ValidationError, match="port"):
             load_config(path)
+
+
+# --------------------------------------------------------------------------- #
+# Headless health config (#3/#4/#5)                                          #
+# --------------------------------------------------------------------------- #
+class TestHeadlessConfig:
+    def test_defaults(self) -> None:
+        cfg = AppConfig().server
+        assert cfg.raid_udp_port == 25565
+        assert cfg.headless_path == ""
+        assert cfg.risky_mod_names == []
+
+    def test_raid_udp_port_zero_rejected(self) -> None:
+        with pytest.raises(ValidationError, match="raid_udp_port"):
+            ServerConfig(raid_udp_port=0)
+
+    def test_raid_udp_port_too_high_rejected(self) -> None:
+        with pytest.raises(ValidationError, match="raid_udp_port"):
+            ServerConfig(raid_udp_port=70000)
+
+    def test_raid_udp_port_valid(self) -> None:
+        assert ServerConfig(raid_udp_port=25565).raid_udp_port == 25565

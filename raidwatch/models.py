@@ -97,6 +97,13 @@ class FikaMetrics(_Model):
     headless_rss_total: int = 0
     config_summary: FikaConfigSummary = Field(default_factory=FikaConfigSummary)
     events_recent: list[FikaEvent] = Field(default_factory=list)
+    boot_job_worker_count: int | None = None
+    boot_optimized: bool = False
+    boot_expected_workers: int | None = None
+    force_ip_set: bool = False
+    raid_udp_port_open: bool = False
+    headless_crashed: bool = False
+    risky_mods: list[str] = Field(default_factory=list)
 
 
 # --------------------------------------------------------------------------- #

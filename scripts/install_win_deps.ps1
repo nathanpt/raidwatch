@@ -74,7 +74,7 @@ if ($evtlog -and $pdh) {
     Write-Host "pywin32 still failing after postinstall -- paste this output back." -ForegroundColor Red
 }
 if (-not $clr) {
-    Write-Host "pythonnet (clr) FAILED -- CPU temps need it + the LHM DLLs (AGENTS.md #2)." -ForegroundColor Yellow
+    Write-Host "pythonnet (clr) FAILED -- CPU temps need it; run this script again after installing pythonnet." -ForegroundColor Yellow
 } else {
-    Write-Host "pythonnet OK -- CPU temps now need only the LHM DLLs vendored (AGENTS.md #2)." -ForegroundColor DarkYellow
+    Write-Host "pythonnet OK -- LHM DLLs are vendored in vendor\lhm\. Run scripts\probe_temps.py to validate the sensor." -ForegroundColor Green
 }

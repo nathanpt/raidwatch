@@ -153,20 +153,24 @@ if (-not $pythonCmd) {
     exit 1
 }
 
-# -- 2. Check .NET runtime (needed for temps/LHM; D30) -----------------------
-W-Step "2" "Checking .NET runtime (needed for CPU temps)..."
+# -- 2. Check .NET Framework (needed for temps/LHM; D30) ----------------------
+# The vendored LHM build (vendor/lhm/) is .NET Framework 4.x, loaded via
+# pythonnet's default CLR -- no extra runtime install on Windows 11 (4.8 is
+# built in). Probe the registry to confirm (Release >= 528040 = 4.8+).
+W-Step "2" "Checking .NET Framework (needed for CPU temps)..."
 $dotnetOK = $false
 try {
-    $dotnetRuntimes = & dotnet --list-runtimes 2>&1
-    if ($dotnetRuntimes -match "Microsoft\.NETCore\.App|Microsoft\.WindowsDesktop\.App") {
+    $ndp = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full" -ErrorAction Stop
+    if ($ndp.Release -ge 528040) {
         $dotnetOK = $true
-        W-Green "  .NET runtime detected."
+        W-Green "  .NET Framework 4.8+ detected (Release=$($ndp.Release))."
     }
 } catch {}
 if (-not $dotnetOK) {
-    W-Yellow "  .NET runtime not found. CPU temps will be unavailable until installed."
+    W-Yellow "  .NET Framework 4.8 not found. CPU temps will be unavailable until installed."
     W-Yellow "  (The dashboard works fine without it - temps are optional.)"
-    W-Yellow "  Download later: https://dotnet.microsoft.com/download/dotnet/8.0"
+    W-Yellow "  Ships with Windows 11; on older hosts install .NET Framework 4.8:"
+    W-Yellow "  https://dotnet.microsoft.com/download/dotnet-framework/net48"
 }
 
 # -- 3. Create virtualenv + install deps -------------------------------------

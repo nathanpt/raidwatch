@@ -144,21 +144,30 @@ Reference D-numatures (e.g. "D21") point at specific decisions in DECISIONS.md.
 
 ## Known Issues / Next Steps
 
-1. **Validate Windows-only paths on the 1800X host** — temps probe, process
-   discovery, WHEA, pywin32 counters. These were written correct-by-construction
-   but never tested on real hardware.
-2. **Vendor `vendor/lhm/` DLLs** — LibreHardwareMonitorLib.dll + deps from
-   official LHM release (D30). Currently the path is configured but DLLs aren't
-   committed.
-3. **Gate threshold baselining** — after a real raid, lower conservative defaults
+**Recently completed:**
+- ✅ Vendored `vendor/lhm/` DLLs — LibreHardwareMonitorLib.dll + 23 deps from
+  official LHM v0.9.6 release (.NET Framework build; D30). Includes a pinned,
+  checksum-verified `scripts/fetch_lhm.ps1` re-fetcher and MPL-2.0 LICENSE.
+  Corrected the .NET prerequisite: the build uses .NET Framework 4.8 (built into
+  Win11) via pythonnet's default CLR — no extra runtime install.
+- ✅ Status pill wired — `app.js` now drives the D22 layered pill from real
+  `/health` + `/api/gates` data (stale > High > Medium > Operational), matching
+  `compute_status_pill` exactly. Fixed a latent `setStatusPill` ReferenceError.
+- ✅ Backend test gaps closed — 31 new tests (collector/auth/health/main-API/
+  supervisor); 130 total green.
+
+**Still open:**
+
+1. **Validate Windows-only paths on the 1800X host** — temps probe (DLLs now
+   vendored, ready to test), process discovery, WHEA, pywin32 counters. Written
+   correct-by-construction but never tested on real hardware.
+2. **Gate threshold baselining** — after a real raid, lower conservative defaults
    to actual headroom (D10).
-4. **Frontend polish** — the dashboard HTML/JS was built functionally but not
+3. **Frontend polish** — the dashboard HTML/JS was built functionally but not
    refined; likely has rough edges and untested edge cases in production.
-5. **Soak test** — 48h+ uptime to verify DB pruning, memory stability, log rotation.
-6. **Status pill client-side logic** — `app.js` has placeholder logic for the
-   D22 layered status pill; needs wiring to real `/health` + gate data.
-7. **Temp card wiring** — the collector gathers temps but the gate wiring for
-   `cpu_thermal` needs the probe to run first.
+4. **Soak test** — 48h+ uptime to verify DB pruning, memory stability, log rotation.
+5. **Temp card wiring** — the collector gathers temps but the gate wiring for
+   `cpu_thermal` needs the probe to run first (now unblocked by the vendored DLLs).
 
 ## Testing Commands
 
