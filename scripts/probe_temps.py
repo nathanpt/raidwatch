@@ -4,11 +4,11 @@
 Enumerates all CPU temperature sensors via LibreHardwareMonitor, dumps their
 names/values/identifiers, and suggests which one to configure.
 
-Run this on the 1800X host BEFORE enabling the cpu_thermal gate (D9):
+Run this on the Ryzen 5 5500 host BEFORE enabling the cpu_thermal gate (D9):
     python scripts/probe_temps.py
 
 Then fill ``temps.cpu_sensor_name`` in config.yaml with the correct sensor name,
-confirm the Tctl offset (Zen1 +20°C), and set ``gates.cpu_thermal.enabled: true``.
+confirm the Tctl offset (0 for Zen3 / Ryzen 5 5500), and set ``gates.cpu_thermal.enabled: true``.
 """
 
 from __future__ import annotations
@@ -79,7 +79,7 @@ def main() -> int:
 
     if tctl:
         print(f"\n  ⚠ Tctl detected: '{tctl[0]['name']}' = {tctl[0]['value']}°C")
-        print("  Zen1 (1800X): Tctl = Tdie + 20°C offset")
+        print("  Zen1 historically: Tctl = Tdie + 20°C offset (0 on Zen3 / Ryzen 5 5500)")
         print(f'  Recommended cpu_sensor_name: "{tctl[0]["name"]}"')
         print("  Recommended tctl_offset: 20")
         print("  (RaidWatch will subtract the offset automatically)")

@@ -27,7 +27,7 @@ temps:
   lhm_dll_path: "vendor/lhm/LibreHardwareMonitorLib.dll"
   # Fill from the temps probe output, then arm the cpu_thermal gate.
   cpu_sensor_name: ""
-  tctl_offset: 20             # Zen1 (1800X) +20C offset — re-derive on the actual chip
+  tctl_offset: 0              # Zen3 (Ryzen 5 5500) reports true die temp — re-derive on the actual chip
 
 gates:
   # Conservative v1 defaults — lower thresholds after baselining a real raid (D10).

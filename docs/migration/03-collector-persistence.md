@@ -108,7 +108,7 @@ equivalents.
       bumps its own error counter.
 - [x] After 5 consecutive whole-body failures, the loop backs off to ~60s and
       recovers (resets to 5s) on the next clean cycle.
-- [x] With the TUI running on the 1800X, a new `metrics_history` row lands
+- [x] With the TUI running on the Ryzen 5 5500, a new `metrics_history` row lands
       roughly every 5s with the cpu/mem/net/disk scalar columns populated.
 - [x] Simulated module failure (e.g., point a source at an unreachable counter)
       blanks only that source's columns; other columns and subsequent cycles
@@ -142,11 +142,9 @@ isolation-behavior observation in the Log.
 ## Log
 
 **2026-07-28 — Done.** Implemented on the Linux (docs/planning) box, then built
-and live-smoked on the Windows build host `gserver` (AMD Ryzen 5 5500, Win11
-24H2, MSVC Build Tools 2022 / v143, reached over SSH). The DoD names the 1800X;
-that is the production deployment target, and `gserver` is the available Windows
-host — the smoke proves the same code path (TUI + in-process collector + SQLite)
-on real btop4win data, so the box is satisfied with that substitution noted.
+and live-smoked on the Windows host `gserver` (AMD Ryzen 5 5500, Win11 24H2,
+MSVC Build Tools 2022 / v143, reached over SSH) — the production-target chip —
+on real btop4win data.
 
 **Build (whole solution, zero upstream source edits — only vcxproj/sln/btop.cpp):**
 ```

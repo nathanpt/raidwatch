@@ -15,7 +15,7 @@ SQLite, and runs **upgrade gates** — stateful thresholds that turn sustained
 metric crossings into hardware upgrade recommendations.
 
 **Repo:** https://github.com/nathanpt/raidwatch (public)
-**Production host:** AMD Ryzen 1800X (Zen1, AM4) Windows 11 IoT LTSC box
+**Production host:** AMD Ryzen 5 5500 (Zen3, AM4) Windows 11 IoT LTSC box
 
 **v1 is functionally complete and deployed:** one-command installer, NSSM service
 as SYSTEM, dashboard + cookie auth at `http://localhost:8080`, SSE streaming,
@@ -88,7 +88,7 @@ uv run ruff format raidwatch/ tests/ scripts/    # format
 
 ## Open Work
 
-Validated on Linux; **not yet validated on the 1800X Windows host** (written
+Validated on Linux; **not yet validated on the Ryzen 5 5500 Windows host** (written
 correct-by-construction):
 
 1. **Windows-only paths** — temps probe (LHM DLLs vendored, ready to test),

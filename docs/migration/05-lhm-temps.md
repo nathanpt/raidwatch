@@ -4,8 +4,8 @@ Status: Backlog
 
 ## Goal
 
-Read CPU package temperature on the 1800X (Zen1) using btop4win's
-`LHM_Enabled` build path and the LHM-CppExport `CPPdll.dll`, apply the Zen1
+Read CPU package temperature on the Ryzen 5 5500 (Zen3) using btop4win's
+`LHM_Enabled` build path and the LHM-CppExport `CPPdll.dll`, apply the
 Tctl offset, persist `temp_cpu_celsius` to `metrics_history`, and surface it in
 the cpu box. This unblocks the `cpu_thermal` gate (armed in step 07). Per T8,
 this uses the **C++ export** path — not the legacy pythonnet path — and ships a
@@ -33,11 +33,12 @@ version-matched LHM DLL set.
    - Select the CPU package sensor (configurable via
      `temps.cpu_sensor_name`; if blank, fall back to the first CPU-package /
      temperature sensor CPPdll enumerates).
-   - Apply `temps.tctl_offset` (default `20.0`) by **subtracting** it from the
-     raw Tctl reading — Zen1 Tctl reports ~20 °C above actual junction temp, so
-     the offset converts it to an approximate die temperature. This matches the
+   - Apply `temps.tctl_offset` (default `0.0`) by **subtracting** it from the
+     raw reading — Zen3 (Ryzen 5 5500) reports true die temperature, so the
+     default offset is 0; a non-zero offset is only needed for chips whose
+     package sensor reports an offset value (e.g. legacy Zen1). This matches the
      legacy `modules/temps.py` behavior and the `config.yaml.example` comment
-     ("Zen1 (1800X) +20°C offset — confirm via probe").
+     ("Zen3 (Ryzen 5 5500) — confirm via probe").
    - Store the corrected value in `snapshot.system.temp_cpu_celsius` (D8:
      wrap the whole read in try/catch; on failure leave `temp_cpu_celsius`
      `std::nullopt` and bump the temps error counter).
@@ -66,7 +67,7 @@ version-matched LHM DLL set.
       `scripts/fetch_lhm_export.ps1` re-fetches them with SHA-256 verification.
 - [ ] **No pythonnet LHM 0.9.6 DLLs** are used on the C++ path (T8
       version-skew rule upheld).
-- [ ] On the 1800X, `snapshot.system.temp_cpu_celsius` is populated each cycle
+- [ ] On the Ryzen 5 5500, `snapshot.system.temp_cpu_celsius` is populated each cycle
       with the offset-corrected value.
 - [ ] `metrics_history.temp_cpu_celsius` is non-NULL after a run.
 - [ ] The offset math matches the LibreHardwareMonitor GUI's reported die
@@ -90,7 +91,7 @@ msbuild native\btop4win\btop4win.sln /p:Configuration=Release /p:Platform=x64
 #   (run ~20s, then quit)
 sqlite3 data\raidwatch.db "SELECT ts, temp_cpu_celsius FROM metrics_history ORDER BY ts DESC LIMIT 3;"
 #   Expected: temp_cpu_celsius populated, values in a plausible idle range
-#             (e.g. ~30–55 °C on a Zen1 idle box), offset-corrected.
+#             (e.g. ~30–55 °C on a Zen3 idle box), offset-corrected.
 
 # Manual cross-check: open the LibreHardwareMonitor GUI, note the CPU package
 # temp, compare to the raidwatch value at the same moment — should agree within

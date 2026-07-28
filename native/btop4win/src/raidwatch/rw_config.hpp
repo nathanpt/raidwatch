@@ -52,7 +52,7 @@ struct CollectionCfg {
 struct TempsCfg {
     std::string lhm_dll_path = "vendor/lhm/LibreHardwareMonitorLib.dll";
     std::string cpu_sensor_name;          // empty ⇒ gate stays disarmed
-    double tctl_offset = 20.0;            // Zen1 +20°C; re-derive per chip
+    double tctl_offset = 0.0;             // Zen3 (Ryzen 5 5500) reports true die temp; re-derive per chip
 };
 
 struct FikaCfg {

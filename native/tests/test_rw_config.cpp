@@ -49,17 +49,17 @@ TEST_CASE("Missing example falls back to built-in defaults", "[config]") {
     auto cfg = raidwatch::load_config(target.string(), (d / "nope.yaml").string());
     REQUIRE(fs::exists(target));
     // Built-in defaults match config.py.
-    REQUIRE(cfg.temps.tctl_offset == 20.0);
+    REQUIRE(cfg.temps.tctl_offset == 0.0);
     REQUIRE(cfg.collection.interval_seconds == 5.0);
     REQUIRE(cfg.processes.spt_server_process_name == "SPT.Server.exe");
 }
 
-TEST_CASE("tctl_offset defaults to 20.0 when omitted", "[config]") {
+TEST_CASE("tctl_offset defaults to 0.0 when omitted", "[config]") {
     auto d = scratch_dir();
     auto p = d / "c.yaml";
     write_file(p, "collection:\n  interval_seconds: 5\n");
     auto cfg = raidwatch::load_config(p.string(), (d / "nope.yaml").string());
-    REQUIRE(cfg.temps.tctl_offset == 20.0);
+    REQUIRE(cfg.temps.tctl_offset == 0.0);
 }
 
 TEST_CASE("Unknown keys warn and are ignored (no failure)", "[config]") {

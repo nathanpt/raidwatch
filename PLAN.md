@@ -154,13 +154,13 @@ This is a **greenfield** repo: only `.docs/` exists. The spec is decision-correc
 
 - [ ] Vendor `vendor/lhm/` — `LibreHardwareMonitorLib.dll` + deps (e.g. `HidSharp.dll`) + `LICENSE` (MPL-2.0) from official LHM GitHub release; path configurable `temps.lhm_dll_path` (D30)
 - [ ] `raidwatch/modules/temps.py`
-  - pythonnet loads vendored DLL (path from config); `Computer` object, enable CPU/GPU/HDD; iterate Temperature sensors; pick configured `cpu_sensor_name`; apply `tctl_offset` (Zen1 +20°C; D9)
+  - pythonnet loads vendored DLL (path from config); `Computer` object, enable CPU/GPU/HDD; iterate Temperature sensors; pick configured `cpu_sensor_name`; apply `tctl_offset` (0 for Zen3 / Ryzen 5 5500; D9)
   - Failure-tolerant (D8): any LHM/driver error → `temp_cpu_celsius=None` + UI warning, never crashes collector
   - Import-guarded `sys.platform == 'win32'` + `.NET runtime` required (documented)
-- [ ] `scripts/probe_temps.py` — enumerate LHM sensors on the 1800X → dump names/values → validate identity + observe Tctl offset → fill config, then arm `cpu_thermal` (D9)
+- [ ] `scripts/probe_temps.py` — enumerate LHM sensors on the Ryzen 5 5500 → dump names/values → validate identity + observe Tctl offset → fill config, then arm `cpu_thermal` (D9)
 - [ ] Wire temp into CPU Temp card (M3) + enable `cpu_thermal` gate (M5, still disabled by default)
 
-**Verify (Windows 1800X, later):** `probe_temps.py` output matches LHM UI; after config fill + `cpu_thermal.enabled: true`, sustained high temp → gate fires.
+**Verify (Windows Ryzen 5 5500, later):** `probe_temps.py` output matches LHM UI; after config fill + `cpu_thermal.enabled: true`, sustained high temp → gate fires.
 
 ### M8 — Tests & quality (throughout; consolidated)
 
@@ -195,6 +195,6 @@ Deep-dive/Fika/logs/settings tabs, config-editor UI, Discord webhooks, weighted 
 
 ## Open follow-ups needing the user (not blocking build; from DECISIONS.md)
 - Confirm exact headless-client launch arg from the WATCHDOG/Fika setup → `headless_cmdline_pattern` (D4).
-- Run `probe_temps.py` on the 1800X → real LHM sensor name + Tctl offset → arm `cpu_thermal` (D9).
+- Run `probe_temps.py` on the Ryzen 5 5500 → real LHM sensor name + Tctl offset → arm `cpu_thermal` (D9).
 - Baseline a real raid → tune conservative gate thresholds to real headroom (D10).
 - Conscious acceptance of WinRing0-in-SYSTEM risk (D31) — or revisit deferring temps to v1.1.

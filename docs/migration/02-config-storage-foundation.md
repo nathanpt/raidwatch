@@ -136,7 +136,7 @@ step delivers libraries + tests only.
    solution, with `#define CATCH_CONFIG_MAIN` in one TU and `catch.hpp` as the
    test framework (T11). Seed it with:
    - `test_rw_config.cpp` — auto-generate from example; warn-and-ignore unknown
-     keys; hard-fail on a bad gate operator; `tctl_offset` default `20.0`.
+     keys; hard-fail on a bad gate operator; `tctl_offset` default `0.0`.
    - `test_rw_database.cpp` — fresh DB has `user_version == 1`; all five tables
      + four indexes exist; insert→query roundtrip; downsampling bucket sizes
      correct for 15m / 6h / 24h windows.

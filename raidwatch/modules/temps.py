@@ -95,7 +95,7 @@ def gather_temps(dll_path: str, sensor_name: str, tctl_offset: float) -> float |
     Args:
         dll_path: Path to LibreHardwareMonitorLib.dll (D30).
         sensor_name: The sensor identifier to read (from probe_temps.py; D9).
-        tctl_offset: Zen1 Tctl +20°C offset to subtract (D9).
+        tctl_offset: Tctl offset to subtract (Zen1 historically +20°C; 0 for Zen3 like the Ryzen 5 5500).
 
     Returns:
         Temperature in °C, or None if unavailable (D8 failure-tolerant).
@@ -117,7 +117,7 @@ def gather_temps(dll_path: str, sensor_name: str, tctl_offset: float) -> float |
                 ):
                     raw_temp = float(sensor.Value)
                     _consecutive_failures = 0
-                    # Apply Tctl offset if configured (D9: Zen1 +20°C).
+                    # Apply Tctl offset if configured (D9).
                     # Only subtract if the sensor name suggests Tctl.
                     if "tctl" in sensor_name.lower() or "tctl" in str(sensor.Name).lower():
                         return raw_temp - tctl_offset

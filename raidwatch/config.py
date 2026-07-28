@@ -107,7 +107,7 @@ class TempsConfig(BaseModel):
 
     lhm_dll_path: str = "vendor/lhm/LibreHardwareMonitorLib.dll"
     cpu_sensor_name: str = ""
-    tctl_offset: float = 20.0
+    tctl_offset: float = 0.0
 
 
 # Valid operators for gate conditions.

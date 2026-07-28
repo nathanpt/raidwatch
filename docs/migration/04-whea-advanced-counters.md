@@ -88,7 +88,7 @@ snapshot and persist into `metrics_history`; new WHEA events also land in the
       query; `disk_queue_length` and `disk_avg_sec_per_transfer` populate
       either from btop4win (if reused) or from PDH — recorded in the Log.
 - [ ] `--probe-whea` prints parsed events and exits.
-- [ ] On a healthy 1800X, `whea_count_2h == 0` and the PerfMon columns are
+- [ ] On a healthy Ryzen 5 5500, `whea_count_2h == 0` and the PerfMon columns are
       populated (0 / small values are acceptable — the point is they are no
       longer `NULL`).
 - [ ] Ported WHEA window/dedupe tests are green in `rw_tests`.

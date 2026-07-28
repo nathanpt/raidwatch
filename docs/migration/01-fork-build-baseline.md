@@ -6,7 +6,7 @@ Status: Done
 
 Establish the C++ foundation: vendor btop4win at a pinned upstream commit into
 `native/btop4win/` as a standalone fork, prove it builds unmodified with the
-upstream MSBuild toolchain, and prove the resulting binary runs on the 1800X
+upstream MSBuild toolchain, and prove the resulting binary runs on the Ryzen 5 5500
 host drawing its stock boxes. No RaidWatch code is written in this step — the
 deliverable is a clean, reproducible baseline that every later step extends.
 
@@ -16,7 +16,7 @@ None — this is the first step.
 
 ## Tasks
 
-1. On the **Windows host** (the 1800X box or any Windows 10/11 dev machine),
+1. On the **Windows host** (the Ryzen 5 5500 box or any Windows 10/11 dev machine),
    install the build prerequisites:
    - **MSVC Build Tools 2022** (C++ workload: MSVC v143 x64/x86, C++ ATL).
    - **Windows SDK** (latest 10/11).
@@ -42,7 +42,7 @@ None — this is the first step.
    msbuild native\btop4win\btop4win.sln /p:Configuration=Release /p:Platform=x64
    ```
 7. Copy the built `btop4win.exe` plus its runtime DLLs / `themes/` /
-   `colors/` folders to a clean run directory and launch it on the 1800X.
+   `colors/` folders to a clean run directory and launch it on the Ryzen 5 5500.
 8. Author `native/README.md` recording: the pinned commit hash, the exact
    `msbuild` invocation, the expected output binary path, and the manual "sync
    from upstream" procedure (since sync is manual per T1 — clone, checkout,
@@ -69,7 +69,7 @@ None — this is the first step.
       the copy (the baseline is byte-identical to the pinned commit).
 - [x] `msbuild ... /p:Configuration=Release /p:Platform=x64` succeeds with
       **zero** edits to any upstream file.
-- [x] The built `btop4win.exe` runs on the 1800X and draws the cpu, mem, net,
+- [x] The built `btop4win.exe` runs on the Ryzen 5 5500 and draws the cpu, mem, net,
       and proc boxes.
 - [x] The upstream `themes/` folder loads — switching a theme at runtime
       recolors the TUI.
@@ -96,7 +96,7 @@ msbuild native\btop4win\btop4win.sln /p:Configuration=Release /p:Platform=x64
 
 # 3. Runtime smoke:
 .\native\btop4win\x64\Release\btop4win.exe
-#   Expected: TUI renders cpu / mem / net / proc boxes on the 1800X;
+#   Expected: TUI renders cpu / mem / net / proc boxes on the Ryzen 5 5500;
 #             pressing the theme key cycles colors.
 ```
 

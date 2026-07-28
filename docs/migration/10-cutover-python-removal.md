@@ -63,7 +63,7 @@ step Done. This is T13.
    `docs/decisions.md` (or extend `docs/migration/README.md`'s decision table).
    The C++ project must not reference gitignored `.docs/`.
 6. **48h soak** — the final gate (T13). Run the C++ `--headless` service for ≥48
-   continuous hours on the 1800X with the real Fika workload, then capture:
+   continuous hours on the Ryzen 5 5500 with the real Fika workload, then capture:
    - **DB size stability** under pruning (`history_retention_hours` keeps
      `metrics_history` bounded; confirm `data/raidwatch.db` plateaus, does not
      grow unbounded).
