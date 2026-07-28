@@ -117,8 +117,7 @@ void RwCollector::run_loop() {
         }
 
         // Schedule next cycle `cadence` after completion (no overlap; D8).
-        const double cadence =
-            (consecutive_failures_.load() >= kBackoffThreshold) ? kBackoffSeconds : interval;
+        const double cadence = cadence_seconds(consecutive_failures_.load(), interval);
         const double wait_s = cadence - elapsed_ms(cycle_start) / 1000.0;
         sleep_with_stop(stop_, wait_s > 0.1 ? wait_s : 0.1);
     }

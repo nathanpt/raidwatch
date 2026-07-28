@@ -5,9 +5,12 @@
 //
 // This test links ONLY rw_snapshot.cpp (the pure projection) — it has no
 // dependency on btop4win, Windows, or SQLite, so it builds and runs identically
-// on the host and (for prototyping) under g++ on the Linux box.
+// on the host and (for prototyping) under g++ on the Linux box. The
+// cadence_seconds() backoff helper from rw_collector.hpp is header-inline, so
+// its case also needs no btop/Windows link.
 
 #include "catch.hpp"
+#include "rw_collector.hpp"
 #include "rw_snapshot.hpp"
 
 #include <cstdint>
@@ -156,4 +159,22 @@ TEST_CASE("A single NIC with no errors yields zero errs_total", "[collector]") {
     REQUIRE(row.net_sent_bps.value() == 500LL);
     REQUIRE(row.net_recv_bps.value() == 900LL);
     REQUIRE(row.net_errs_total.value() == 0LL);
+}
+TEST_CASE("cadence_seconds backs off after 5 consecutive failures (D8)",
+          "[collector]") {
+    using C = raidwatch::RwCollector;
+    const double interval = 5.0;
+
+    // Clean + below threshold: normal cadence.
+    REQUIRE(raidwatch::cadence_seconds(0, interval) == interval);
+    REQUIRE(raidwatch::cadence_seconds(4, interval) == interval);
+
+    // At/above threshold: back off to ~60s.
+    REQUIRE(raidwatch::cadence_seconds(5, interval) == C::kBackoffSeconds);
+    REQUIRE(raidwatch::cadence_seconds(99, interval) == C::kBackoffSeconds);
+
+    // Recovery: resetting the failure count restores the normal interval.
+    REQUIRE(raidwatch::cadence_seconds(0, interval) == interval);
+    REQUIRE(C::kBackoffThreshold == 5);
+    REQUIRE(C::kBackoffSeconds == 60.0);
 }

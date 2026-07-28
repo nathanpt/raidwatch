@@ -68,6 +68,16 @@ private:
     std::atomic<double> last_cycle_ms_{0.0};
     std::atomic<int> consecutive_failures_{0};
 };
+// Pure: cadence (seconds) for the next cycle given the current consecutive
+// whole-body failure count and the configured interval. After kBackoffThreshold
+// consecutive failures the loop backs off to kBackoffSeconds; a clean cycle
+// (caller resets the count to 0) restores the normal interval. Header-inline so
+// it is unit-testable without linking the btop/Windows-only collector TU.
+inline double cadence_seconds(int consecutive_failures, double interval_seconds) {
+    return (consecutive_failures >= RwCollector::kBackoffThreshold)
+               ? RwCollector::kBackoffSeconds
+               : interval_seconds;
+}
 
 // --- process-wide lifecycle (called from the btop4win entry point) ----------
 //
