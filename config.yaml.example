@@ -1,32 +1,15 @@
 # RaidWatch configuration.
-# On first run (missing config.yaml), this file is auto-generated with safe
-# defaults — system metrics work with zero config; Fika starts disabled (D23).
-# Edit values by hand, then restart the service (no live reload in v1).
-
-server:
-  name: "tarkov-fika-host"
-  # SPT install root. Fika module disabled until this path exists (D23).
-  spt_path: "D:\\SPTarkov"
-  log_paths:
-    server: "D:\\SPTarkov\\BepInEx\\LogOutput.log"
-    fika: "D:\\SPTarkov\\user\\mods\\fika-server\\logs\\fika.log"
-    watchdog: "%APPDATA%\\WATCHDOG"
-  bind_host: "0.0.0.0"   # firewall scopes reachability (D11)
-  port: 8080
-  # Headless client install root (separate EFT instance). Fika health sources
-  # derive from this via conventional paths; leave blank to disable (D23):
-  #   <headless_path>/EscapeFromTarkov_Data/boot.config
-  #   <headless_path>/BepInEx/config/com.fika.core.cfg
-  #   <headless_path>/BepInEx/plugins
-  headless_path: ""
-  raid_udp_port: 25565        # Fika UDP raid port (default 25565)
-  # Substrings (case-insensitive) of headless BepInEx plugin names known to
-  # crash the headless client (graphics/post-FX/audio mods, e.g. amands/realism).
-  # Empty = no scan; populate with your known-bad mods on the host.
-  risky_mod_names: []
+# On first run (missing data/config.yaml), this file is auto-copied there with
+# safe defaults — system metrics work with zero config; Fika starts disabled
+# (D23). Edit values by hand, then restart (no live reload).
+#
+# T4: this schema DROPS the legacy `server:` (HTTP bind_host/port) and `auth:`
+# (token) sections — the local TUI has no HTTP surface and auth is not ported.
+# The Fika-relevant fields that lived under `server:` are relocated to the
+# top-level `fika:` section below (consumed by the Fika module).
 
 processes:
-  # Config-driven discovery (D4). Run `scripts/discover_processes.py` to confirm.
+  # Config-driven discovery (D4). Run `discover_processes` to confirm on the host.
   spt_server_process_name: "SPT.Server.exe"
   headless_process_name: "EscapeFromTarkov.exe"
   # Regex compiled at load; invalid regex is a clear config error (D4).
@@ -40,11 +23,11 @@ collection:
   top_others_poll_seconds: 15 # D20 — top-others process table on its own timer
 
 temps:
-  # D9/D30. Requires the .NET runtime + vendored LHM DLLs.
+  # D9/D30. Requires the LHM CPPdll build (see step 05 / T8).
   lhm_dll_path: "vendor/lhm/LibreHardwareMonitorLib.dll"
-  # Fill from `scripts/probe_temps.py` output, then arm cpu_thermal gate.
+  # Fill from the temps probe output, then arm the cpu_thermal gate.
   cpu_sensor_name: ""
-  tctl_offset: 20             # Zen1 (1800X) +20°C offset — confirm via probe
+  tctl_offset: 20             # Zen1 (1800X) +20C offset — re-derive on the actual chip
 
 gates:
   # Conservative v1 defaults — lower thresholds after baselining a real raid (D10).
@@ -55,39 +38,59 @@ gates:
     duration_seconds: 300
     severity: high
     recommendation: "Add 16-32GB DDR4 3000MHz+ kit (dual channel). Verify XMP + SPT/headless working sets."
+    metric: "system.ram_percent"
   cpu_sustained:
     enabled: true
     threshold: 88
     duration_seconds: 600
     severity: medium
     recommendation: "CPU upgrade path: Zen 3 5800X3D, or add/optimize headless clients. Tune Fika bot/spawn limits first."
+    metric: "system.cpu_total_percent"
   storage_io:
     enabled: true
     threshold: 3.0            # disk queue length
     duration_seconds: 120
     severity: medium
     recommendation: "Faster storage: NVMe for SPT/game files (separate from OS). Or reduce map complexity/mods."
+    metric: "system.disk_queue_length"
   storage_space:
     enabled: true
     threshold: 15             # free space percent (gate fires when BELOW this)
+    operator: "<"
     duration_seconds: 0       # immediate — no sustained duration needed
     severity: medium
     recommendation: "Clean old profiles, logs, temp files, or expand drive."
+    metric: "system.disk_game_free_bytes"
   stability_whea:
     enabled: true
     threshold: 5              # WHEA events in last 2h sliding window (D16)
     duration_seconds: 0
     severity: high
     recommendation: "BIOS/RAM tuning: verify XMP/DOCP, FCLK sync, DRAM voltages/timings. Reseat RAM, update chipset/BIOS."
+    metric: "system.whea_count_2h"
   cpu_thermal:
     enabled: false            # D9: disabled until probe-validated
     threshold: 90
     duration_seconds: 180
     severity: high
-    recommendation: "Check AIO pump/fans/dust/repaste. Verify sensor identity + Tctl offset via probe_temps.py."
+    recommendation: "Check AIO pump/fans/dust/repaste. Verify sensor identity + Tctl offset via the temps probe."
+    metric: "temps.cpu_package"
 
-auth:
-  # ≥32-byte random token, install-generated, ACL'd to SYSTEM+Admins (D33).
-  # NEVER logged (redacted via logging filter). Replace this placeholder before
-  # exposing on the network; install_service.ps1 generates a strong token.
-  token: "CHANGE_ME_TO_A_STRONG_RANDOM_TOKEN_AT_LEAST_32_BYTES_LONG"
+fika:
+  # SPT install root. Fika module disabled until this path exists (D23).
+  spt_path: "D:\\SPTarkov"
+  log_paths:
+    server: "D:\\SPTarkov\\BepInEx\\LogOutput.log"
+    fika: "D:\\SPTarkov\\user\\mods\\fika-server\\logs\\fika.log"
+    watchdog: "%APPDATA%\\WATCHDOG"
+  # Headless client install root (separate EFT instance). Fika health sources
+  # derive from this via conventional paths; leave blank to disable (D23):
+  #   <headless_path>/EscapeFromTarkov_Data/boot.config
+  #   <headless_path>/BepInEx/config/com.fika.core.cfg
+  #   <headless_path>/BepInEx/plugins
+  headless_path: ""
+  raid_udp_port: 25565        # Fika UDP raid port (default 25565)
+  # Substrings (case-insensitive) of headless BepInEx plugin names known to
+  # crash the headless client (graphics/post-FX/audio mods, e.g. amands/realism).
+  # Empty = no scan; populate with your known-bad mods on the host.
+  risky_mod_names: []

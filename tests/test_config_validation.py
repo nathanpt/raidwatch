@@ -44,7 +44,7 @@ class TestAutoGenerate:
         cfg = load_config(target)
         assert target.exists(), "Config should be auto-generated"
         # Auto-generated from example has known defaults.
-        assert cfg.server.name == "tarkov-fika-host"
+        assert cfg.fika.spt_path == "D:\\SPTarkov"
         assert cfg.collection.interval_seconds == 5
 
     def test_auto_generated_has_conservative_gate_defaults(self, tmp_path: Path) -> None:
@@ -163,7 +163,7 @@ class TestRoundTrip:
 
     def test_port_validation(self, tmp_path: Path) -> None:
         data = _example_data()
-        data["server"]["port"] = 99999
+        data.setdefault("server", {})["port"] = 99999
         path = _write_config(tmp_path, data)
         with pytest.raises(ValidationError, match="port"):
             load_config(path)

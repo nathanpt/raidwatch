@@ -14,8 +14,9 @@ dist/
 venv/
 env/
 
-# RaidWatch runtime data (auto-generated, never committed)
-data/
+# RaidWatch runtime data: ignore contents but keep the dir via .gitkeep.
+/data/*
+!/data/.gitkeep
 *.db
 *.db-journal
 *.db-wal

@@ -174,6 +174,33 @@ class AuthConfig(BaseModel):
         return v
 
 
+class FikaConfig(BaseModel):
+    """Fika module settings (T4 forward-compat).
+
+    During the C++ migration these fields are relocated from the legacy
+    ``server:`` section to a top-level ``fika:`` section (consumed by the C++
+    Fika module in step 06). Accepting them here keeps the shared
+    ``config.yaml.example`` parseable under the legacy loader while the Python
+    and C++ code paths coexist. Legacy code still reads the old ``server.*``
+    fields; this model is accepted-but-unused by the Python runtime.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    spt_path: str = ""
+    log_paths: dict[str, str] = Field(default_factory=dict)
+    headless_path: str = ""
+    raid_udp_port: int = 25565
+    risky_mod_names: list[str] = Field(default_factory=list)
+
+    @field_validator("raid_udp_port")
+    @classmethod
+    def _valid_port(cls, v: int) -> int:
+        if not 1 <= v <= 65535:
+            raise ValueError(f"port must be 1-65535, got {v}")
+        return v
+
+
 # --------------------------------------------------------------------------- #
 # Top-level config                                                            #
 # --------------------------------------------------------------------------- #
@@ -188,6 +215,7 @@ class AppConfig(BaseModel):
     temps: TempsConfig = Field(default_factory=TempsConfig)
     gates: dict[str, GateConfig] = Field(default_factory=dict)
     auth: AuthConfig = Field(default_factory=AuthConfig)
+    fika: FikaConfig = Field(default_factory=FikaConfig)  # T4 forward-compat
 
 
 # --------------------------------------------------------------------------- #

@@ -1,6 +1,6 @@
 # 02 — Config + storage foundation
 
-Status: Backlog
+Status: Done
 
 ## Goal
 
@@ -159,21 +159,21 @@ step delivers libraries + tests only.
 
 ## Definition of Done
 
-- [ ] `native/third_party/` contains `ryml_all.hpp`, `sqlite3.c`, `sqlite3.h`,
+- [x] `native/third_party/` contains `ryml_all.hpp`, `sqlite3.c`, `sqlite3.h`,
       `catch.hpp` (catch is v2.13.10).
-- [ ] `rw_config` auto-generates `data/config.yaml` from
+- [x] `rw_config` auto-generates `data/config.yaml` from
       `config.yaml.example` on first run; parses the surviving schema; warns
       and ignores an unknown key; throws on an invalid gate operator.
-- [ ] `config.yaml.example` no longer contains `server:` or `auth:`.
-- [ ] `rw_database` opens `data/raidwatch.db`, runs the v1 DDL, and
+- [x] `config.yaml.example` no longer contains `server:` or `auth:`.
+- [x] `rw_database` opens `data/raidwatch.db`, runs the v1 DDL, and
       `PRAGMA user_version` returns `1` on a fresh DB.
-- [ ] All five tables (`metrics_history`, `fika_events`, `gate_events`,
+- [x] All five tables (`metrics_history`, `fika_events`, `gate_events`,
       `whea_events`, `gate_state`) and all four indexes exist on a fresh DB.
-- [ ] An insert into `metrics_history` followed by `query_history(60)` returns
+- [x] An insert into `metrics_history` followed by `query_history(60)` returns
       the row with correct aggregates (no double-count, bucket = 5000ms for a
       60-minute window).
-- [ ] `rw_tests` builds and all config + database tests pass.
-- [ ] `uv run pytest` + `uv run ruff check .` still green/clean on the Linux
+- [x] `rw_tests` builds and all config + database tests pass.
+- [x] `uv run pytest` + `uv run ruff check .` still green/clean on the Linux
       box (legacy untouched).
 
 ## Verification
@@ -200,5 +200,67 @@ uv run pytest && uv run ruff check .
 
 ## Log
 
-<!-- On Done: date + the rw_tests pass line, the PRAGMA user_version=1 output,
-     and the roundtrip query result. Empty until executed. -->
+**2026-07-28 — executed.** All DoD checkboxes verified on the build host
+(AMD Ryzen 5 5500, Win11 24H2, MSVC Build Tools 2022 / v143, reached over SSH).
+
+**Vendored (T4/T5/T11):**
+- `ryml_all.hpp` — rapidyaml **v0.16.0** single header. NOTE: recent rapidyaml
+  releases no longer publish `ryml_all.hpp` as a GitHub asset (it is tool-
+  generated now). Generated it on the Linux box via `tools/amalgamate.py
+  -t single_hdr -e=tree` against a `--recurse-submodules` checkout of the
+  v0.16.0 tag. In exactly one TU (`rw_config.cpp`) we `#define
+  RYML_SINGLE_HDR_DEFINE_NOW` before the include. Built clean under MSVC C++20
+  at /W3 — **no yaml-cpp fallback was needed** (T4's swap path stays unused).
+- `sqlite3.c/.h` — SQLite **3.53.4** official amalgamation. Compiled as C
+  (`<CompileAs>CompileAsC</CompileAs>`) with warnings off + `/FS`, defines
+  `SQLITE_OMIT_LOAD_EXTENSION;SQLITE_THREADSAFE=1`. (A gcc-only note for future
+  Linux prototyping: compile sqlite3.c with `gcc`, not `g++` — gcc-15's
+  `-fno-common` rejects the amalgamation's tentative+definition of
+  `sqlite3WhereTrace` in C++ mode; MSVC is unaffected, `.c` is C by default.)
+- `catch.hpp` — catch2 **v2.13.10**.
+
+**Build (whole solution, zero upstream source edits — only vcxproj/sln/items):**
+```
+msbuild btop4win.sln /p:Configuration=Release /p:Platform=x64 /m -nologo -verbosity:minimal
+  ... sqlite3.c / rw_config.cpp / rw_database.cpp ...
+  btop4win.vcxproj -> ...\native\btop4win\x64\Release\btop4win.exe
+  rw_tests.vcxproj  -> ...\native\tests\x64\Release\rw_tests.exe
+BUILD_EXIT=0   (0 errors)
+```
+
+**rw_tests (config + database, catch2):**
+```
+.\native\tests\x64\Release\rw_tests.exe
+All tests passed (76 assertions in 22 test cases)   TEST_EXIT=0
+```
+Covers the full DoD: fresh-DB `user_version == 1`; all 5 tables + 4 indexes
+present; `insert_metrics` → `query_history(60)` roundtrip with MAX/AVG/MIN
+aggregates correct and no double-count; bucket sizes 5000/30000/120000 for
+15m/6h/24h; auto-generate from `config.yaml.example`; warn-and-ignore unknown
+keys; hard-fail on bad gate operator/severity + negative duration; the shipped
+example parses to 6 gates with `storage_space.op == "<"` and the relocated
+`fika:` fields. (The spec's illustrative `rw_db_smoke.exe` was not built —
+`rw_tests.exe` asserts the same facts directly.)
+
+**T5 deviation (intended):** WAL is OFF. The legacy Python service used
+`PRAGMA journal_mode=WAL` (async API had concurrent readers); the C++ collector
+is single-threaded, so the default rollback journal (`journal_mode=DELETE`) +
+`synchronous=NORMAL` + `busy_timeout=5000` is simpler and correct per T5.
+
+**Legacy compatibility (required by the mandated example change):** dropping
+`server:`/`auth:` and relocating those fields to a top-level `fika:` section
+made the shared `config.yaml.example` unparseable by legacy `config.py`
+(`AppConfig` is `extra="forbid"`, no `fika` field). Resolved by adding a
+forward-compatible `FikaConfig` (permissive, accepted-but-unused by the Python
+runtime) to legacy `AppConfig`, plus two test fixes in
+`tests/test_config_validation.py`. Legacy guard stays green:
+```
+uv run pytest        # 133 passed
+uv run ruff check .  # All checks passed!
+```
+
+**Gotcha for later steps:** test temp-file names must avoid `< > : " / \ | ? *`
+(Windows). A first cut named files `c_<op>.yaml` and failed on `>`; fixed to
+`op<N>.yaml`. Prototyped all C++ on the Linux box with `g++` + the same vendored
+headers before the host build (sqlite3.c compiled with `gcc`, ryml via the
+single-header define) — this caught everything except the Windows-filename issue.

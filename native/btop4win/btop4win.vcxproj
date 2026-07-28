@@ -387,6 +387,18 @@
     <ClCompile Include="src\btop_tools.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <!-- RaidWatch sources (step 02): config + storage foundation (T4/T5). -->
+    <ClCompile Include="src\raidwatch\rw_config.cpp" />
+    <ClCompile Include="src\raidwatch\rw_database.cpp" />
+    <!-- Third-party C amalgamation: warnings off + /FS (MultiProcessorCompilation). -->
+    <ClCompile Include="..\third_party\sqlite3.c">
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <ForceSynchronousPDB>true</ForceSynchronousPDB>
+      <CompileAs>CompileAsC</CompileAs>
+      <PreprocessorDefinitions>SQLITE_OMIT_LOAD_EXTENSION;SQLITE_THREADSAFE=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
     <ClInclude Include="include\robin_hood.h" />
     <ClInclude Include="include\widechar_width.hpp" />
     <ClInclude Include="resource.h" />
@@ -397,6 +409,16 @@
     <ClInclude Include="src\btop_shared.hpp" />
     <ClInclude Include="src\btop_theme.hpp" />
     <ClInclude Include="src\btop_tools.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- RaidWatch headers (step 02). -->
+    <ClInclude Include="src\raidwatch\rw_config.hpp" />
+    <ClInclude Include="src\raidwatch\rw_database.hpp" />
+    <!-- Vendored single headers (T4/T5/T11). -->
+    <ClInclude Include="..\third_party\ryml_all.hpp" />
+    <ClInclude Include="..\third_party\sqlite3.h" />
+    <ClInclude Include="..\third_party\sqlite3ext.h" />
+    <ClInclude Include="..\third_party\catch.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitignore" />
