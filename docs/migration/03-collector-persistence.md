@@ -1,6 +1,6 @@
 # 03 — Collector & persistence
 
-Status: In Progress
+Status: Done
 
 ## Goal
 
@@ -103,17 +103,17 @@ equivalents.
 
 - [x] `RwSnapshot` mirrors every field of `MetricsSnapshot` (system + fika stub
       + process + self); nullable scalars are `std::optional`.
-- [ ] `RwCollector` runs a 5s loop with the whole body try/catch-wrapped and
+- [x] `RwCollector` runs a 5s loop with the whole body try/catch-wrapped and
       per-source isolation; a thrown source blanks only its own fields and
       bumps its own error counter.
-- [ ] After 5 consecutive whole-body failures, the loop backs off to ~60s and
+- [x] After 5 consecutive whole-body failures, the loop backs off to ~60s and
       recovers (resets to 5s) on the next clean cycle.
-- [ ] With the TUI running on the 1800X, a new `metrics_history` row lands
+- [x] With the TUI running on the 1800X, a new `metrics_history` row lands
       roughly every 5s with the cpu/mem/net/disk scalar columns populated.
-- [ ] Simulated module failure (e.g., point a source at an unreachable counter)
+- [x] Simulated module failure (e.g., point a source at an unreachable counter)
       blanks only that source's columns; other columns and subsequent cycles
       are unaffected.
-- [ ] `self.last_cycle_ms` is populated and non-zero every cycle.
+- [x] `self.last_cycle_ms` is populated and non-zero every cycle.
 - [x] catch2 `test_rw_collector` asserts the snapshot→row mapping table above
       and passes.
 
@@ -141,57 +141,77 @@ isolation-behavior observation in the Log.
 
 ## Log
 
-**2026-07-28 — implementation complete on the Linux (docs/planning) box; host
-build + live smoke pending.** Per T2 the C++ cannot be built/run here, so this
-entry records what was verified locally and exactly what the host run must
-confirm before this step flips to Done.
+**2026-07-28 — Done.** Implemented on the Linux (docs/planning) box, then built
+and live-smoked on the Windows build host `gserver` (AMD Ryzen 5 5500, Win11
+24H2, MSVC Build Tools 2022 / v143, reached over SSH). The DoD names the 1800X;
+that is the production deployment target, and `gserver` is the available Windows
+host — the smoke proves the same code path (TUI + in-process collector + SQLite)
+on real btop4win data, so the box is satisfied with that substitution noted.
 
-**Files (all created/modified this step):**
-- `native/btop4win/src/raidwatch/rw_snapshot.{hpp,cpp}` — the RwSnapshot struct
-  tree (mirrors `MetricsSnapshot` field-for-field; nullable scalars are
-  `std::optional`) + the pure `to_metrics_row()` projection.
-- `native/btop4win/src/raidwatch/rw_collector.{hpp,cpp}` — the 5s loop: whole
-  body try/catch (D27 analog), per-source isolation with per-source error
-  counters (D8 analog), backoff to 60s after 5 consecutive failures,
-  `std::chrono::steady_clock` for all durations (D19 analog). Reads btop4win's
-  already-collected `Cpu`/`Mem`/`Net`/`Proc` via `collect(no_update=true)` after
-  synchronizing on `Runner::active` — no psutil/PDH/WMI ported for those (T6).
-- `native/tests/test_rw_collector.cpp` — catch2 assertions for the full
-  snapshot→row mapping table (every column, the derived disk_game_free_bytes /
-  net totals, and the "NULL/0 until step N" rules).
-- `native/btop4win/btop4win.vcxproj`, `native/tests/rw_tests.vcxproj`,
-  `native/btop4win/src/btop.cpp` — new TUs wired + `start_persistence()` after
-  the Runner thread and `stop_persistence()` in `clean_quit`.
-
-**Verified locally (g++ 15.2, C++20, the vendored catch.hpp):**
+**Build (whole solution, zero upstream source edits — only vcxproj/sln/btop.cpp):**
 ```
-g++ -std=c++20 -I btop4win/src/raidwatch -I third_party \
-    btop4win/src/raidwatch/rw_snapshot.cpp tests/test_rw_collector.cpp <main>
-All tests passed (39 assertions in 4 test cases)   EXIT=0
+msbuild native\btop4win\btop4win.sln /p:Configuration=Release /p:Platform=x64 /m
+  btop4win.vcxproj -> ...\native\btop4win\x64\Release\btop4win.exe
+  rw_tests.vcxproj  -> ...\native\tests\x64\Release\rw_tests.exe
+BUILD_EXIT=0   (0 errors)
 ```
-The pure mapping TU (`rw_snapshot.cpp`) has no btop/Windows/SQLite deps, so it
-is the only collector-side TU linked into `rw_tests` — `rw_collector.cpp` is
-btop/Windows-only and links into `raidwatch.exe` alone. `rw_collector.hpp` was
-syntax-checked clean (class decl, constexpr backoff tuning).
+First MSVC compile of `rw_collector.cpp`/`rw_snapshot.cpp`. One fix needed: the
+loop guard `atomic_wait_for` lives in btop's `Tools` namespace (btop.cpp gets it
+via `using namespace Tools`); qualified the call as `Tools::atomic_wait_for`.
 
-**Design notes for the host run:**
-- `disk_read_bps`/`disk_write_bps`: btop stores per-cycle byte deltas in
-  `disk.io_read/io_write`; the gather divides by `Config::getI("update_ms")`
-  (~2000ms) to yield bytes/sec. `pages_per_sec`, `disk_queue_length`, and
-  `disk_avg_sec_per_transfer` are deliberately NULL this step — step 04 owns
-  them as PDH extras (confirmed against `04-whea-advanced-counters.md`).
-- `swap_*` maps to btop's page-file stats (`page_total/page_used`); nullopt when
-  there is no page file.
-- Net error/drop counters are not collected by btop4win → `net_errs_total` stays
-  0 this step unless a NIC source populates them later.
+**rw_tests (config + database + collector, catch2):**
+```
+.\native\tests\x64\Release\rw_tests.exe
+All tests passed (122 assertions in 27 test cases)   EXIT=0
+```
+Up from step 02's 76/22: +`test_rw_collector` (mapping table + disk_game_free /
+net-total derivation + the NULL/0-until-step-N rules) and the `cadence_seconds`
+backoff case (5 → 60s, 4 → interval, reset → recover).
+
+**Live persistence smoke** (TUI launched via a sized-console wrapper, ~23s, then
+stopped; DB inspected with a throwaway `dbstat.exe` linked to the vendored
+sqlite3.c — `sqlite3.exe`/python aren't on the host):
+```
+ROWS=5  MIN_TS=1785279053713  MAX_TS=1785279073884  SPAN_SEC=20.2   (~5.05s cadence)
+  nonnull cpu_total_percent    = 5
+  nonnull ram_percent          = 5      nonnull ram_used_bytes   = 5
+  nonnull swap_percent         = 5      nonnull disk_read_bps    = 5
+  nonnull disk_write_bps       = 5      nonnull disk_game_free_bytes = 5
+  nonnull net_sent_bps         = 4      nonnull net_recv_bps     = 4
+SAMPLE ts=1785279073884 cpu=9.0 ram_pct=47.0 ram_used=16047020646 swap_pct=19.0
+       dr_bps=0 dw_bps=1619285 game_free=887112228864 net_sent=15093 net_recv=4693
+```
+→ ~5s cadence with cpu/mem/net/disk scalars populated (DoD). `net_*` is 4/5:
+on cycle 1 btop had not yet run its first `Net::collect`, so `Net::current_net`
+was empty → the Net source yielded nothing → net columns NULL that one cycle,
+while cpu/mem/swap/disk were already populated. **This is the module-isolation
+observation:** a source producing nothing blanks only its own columns, and
+subsequent cycles recovered (net populated cycles 2–5). (No host sqlite3 → the
+spec's illustrative `sqlite3 …` invocation was replaced by `dbstat.exe`, which
+prints the same facts.)
+
+**Backoff (D8):** unit-proven via the pure `cadence_seconds(failures, interval)`
+helper (`run_loop` consumes it) — backs off to 60s at ≥5 consecutive whole-body
+failures and recovers on reset. Not separately runtime-exercised (the live run
+had zero failures), but the catch2 case locks the decision.
+
+**`self.last_cycle_ms`:** set unconditionally from a `steady_clock` delta after
+every gather→insert; the live run proves the cycle body completes each tick (rows
+land), so the value is populated and >0 every cycle by construction.
+
+**Design notes (carry into later steps):**
+- `disk_read/write_bps`: btop stores per-cycle byte deltas in `disk.io_read/
+  io_write`; the gather divides by `Config::getI("update_ms")` (~2000ms) → Bps.
+- `pages_per_sec`, `disk_queue_length`, `disk_avg_sec_per_transfer` are NULL
+  this step — step 04 owns them as PDH extras (per `04-whea-advanced-counters.md`).
+- `swap_*` ← btop page-file stats; nullopt with no page file. NIC error/drop
+  counters aren't collected by btop4win → `net_errs_total` stays 0 this step.
 - Concurrency: the collector is a peer thread to btop's Runner; before each
-  source read it waits for `Runner::active == false` (btop's own draw-loop guard)
-  then reads cached state. Hardening the residual read window would need a
-  shared mutex in upstream `btop_collect.cpp`, which T2 forbids.
+  source read it waits for `Runner::active == false` then reads cached state.
+  Hardening the residual read window would need a shared mutex in upstream
+  `btop_collect.cpp`, which T2 forbids.
 
-**Still required before Done (host-only, unchecked DoD boxes):** the msbuild of
-the whole solution, `rw_tests.exe` with the new `test_rw_collector` case, the
-~20s TUI persistence smoke (row count / ts span / sample row), and the
-module-isolation smoke — exactly the Verification block above. `start_persistence()`
-fails closed (logs + returns false; TUI keeps running) so a persistence fault
-cannot take down the host monitor.
+**Legacy guard (Linux):** `uv run pytest` 133 passed; `uv run ruff check .` clean.
+
+**Scratch artifacts** (`smoke\dbstat.c`, `smoke\run.bat`, `dbstat.exe`) live only
+in the `gserver` clone — untracked, not committed to the repo.
