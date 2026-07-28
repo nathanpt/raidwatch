@@ -41,7 +41,7 @@ below (IDs `T1`–`T13`); every Python module's destination is in the
 | --- | --- | --- |
 | [01](01-fork-build-baseline.md) | Fork, build & baseline btop4win | Done |
 | [02](02-config-storage-foundation.md) | Config + storage foundation | Done |
-| [03](03-collector-persistence.md) | Collector & persistence | Backlog |
+| [03](03-collector-persistence.md) | Collector & persistence | In Progress |
 | [04](04-whea-advanced-counters.md) | WHEA + advanced PerfMon counters | Backlog |
 | [05](05-lhm-temps.md) | LHM temperatures | Backlog |
 | [06](06-fika-module.md) | Fika module | Backlog |

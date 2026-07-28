@@ -38,6 +38,9 @@ tab-size = 4
 #include <btop_draw.hpp>
 #include <btop_menu.hpp>
 
+// RaidWatch persistence (step 03, T6) — in-process 5s collector + SQLite.
+#include <raidwatch/rw_collector.hpp>
+
 using std::string, std::string_view, std::vector, std::atomic, std::endl, std::cout, std::min, std::flush, std::endl;
 using std::string_literals::operator""s, std::to_string;
 namespace fs = std::filesystem;
@@ -198,6 +201,8 @@ void clean_quit(int sig) {
       return;
    }
 	Runner::stop();
+	// Stop + join the RaidWatch collector thread, close the DB (step 03, T6).
+	raidwatch::stop_persistence();
 
 	Config::write();
 
@@ -611,6 +616,10 @@ int main(int argc, char **argv) {
 	else {
 		Global::_runner_started = true;
 	}
+
+	//? Start RaidWatch persistence (config load + DB open + collector thread).
+	//? Never fatal: on failure it logs and the TUI keeps running without it.
+	raidwatch::start_persistence();
 
 	//? Calculate sizes of all boxes
 	Config::presetsValid(Config::getS("presets"));

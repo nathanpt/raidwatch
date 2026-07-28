@@ -78,9 +78,14 @@
     <ClCompile Include="rw_tests_main.cpp" />
     <ClCompile Include="test_rw_config.cpp" />
     <ClCompile Include="test_rw_database.cpp" />
-    <!-- RaidWatch sources under test (compiled into the test binary). -->
+    <ClCompile Include="test_rw_collector.cpp" />
+    <!-- RaidWatch sources under test (compiled into the test binary).
+         rw_snapshot.cpp is pure (no btop/Windows/SQLite deps) so the
+         snapshot->row mapping is testable here; rw_collector.cpp is
+         btop/Windows-only and is NOT linked into rw_tests. -->
     <ClCompile Include="..\btop4win\src\raidwatch\rw_config.cpp" />
     <ClCompile Include="..\btop4win\src\raidwatch\rw_database.cpp" />
+    <ClCompile Include="..\btop4win\src\raidwatch\rw_snapshot.cpp" />
     <!-- Third-party C amalgamation: warnings off + /FS. -->
     <ClCompile Include="..\third_party\sqlite3.c">
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
@@ -92,6 +97,8 @@
   <ItemGroup>
     <ClInclude Include="..\btop4win\src\raidwatch\rw_config.hpp" />
     <ClInclude Include="..\btop4win\src\raidwatch\rw_database.hpp" />
+    <ClInclude Include="..\btop4win\src\raidwatch\rw_snapshot.hpp" />
+    <ClInclude Include="..\btop4win\src\raidwatch\rw_collector.hpp" />
     <ClInclude Include="..\third_party\catch.hpp" />
     <ClInclude Include="..\third_party\sqlite3.h" />
   </ItemGroup>

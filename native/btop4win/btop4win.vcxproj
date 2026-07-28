@@ -387,9 +387,11 @@
     <ClCompile Include="src\btop_tools.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <!-- RaidWatch sources (step 02): config + storage foundation (T4/T5). -->
+    <!-- RaidWatch sources: config + storage (step 02, T4/T5) + collector (step 03, T6). -->
     <ClCompile Include="src\raidwatch\rw_config.cpp" />
     <ClCompile Include="src\raidwatch\rw_database.cpp" />
+    <ClCompile Include="src\raidwatch\rw_snapshot.cpp" />
+    <ClCompile Include="src\raidwatch\rw_collector.cpp" />
     <!-- Third-party C amalgamation: warnings off + /FS (MultiProcessorCompilation). -->
     <ClCompile Include="..\third_party\sqlite3.c">
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
@@ -411,9 +413,10 @@
     <ClInclude Include="src\btop_tools.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <!-- RaidWatch headers (step 02). -->
     <ClInclude Include="src\raidwatch\rw_config.hpp" />
     <ClInclude Include="src\raidwatch\rw_database.hpp" />
+    <ClInclude Include="src\raidwatch\rw_snapshot.hpp" />
+    <ClInclude Include="src\raidwatch\rw_collector.hpp" />
     <!-- Vendored single headers (T4/T5/T11). -->
     <ClInclude Include="..\third_party\ryml_all.hpp" />
     <ClInclude Include="..\third_party\sqlite3.h" />
