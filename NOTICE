@@ -1,0 +1,20 @@
+RaidWatch
+=========
+
+This product includes software developed as part of the btop4win project,
+authored by **aristocratos**.
+
+  btop4win upstream .... https://github.com/aristocratos/btop4win
+  Vendored source ...... native/btop4win/
+  Pinned commit ........ 4b4bda273988e7eec41727a41f2cbc907d14eb0e
+                        (master, 2025-10-12, btop4win v1.0.5)
+
+btop4win is licensed under the Apache License, Version 2.0 and is bundled
+here under that license. The unmodified license text is retained at
+native/btop4win/LICENSE.
+
+The vendored copy in native/btop4win/ is a byte-identical snapshot of the
+pinned commit above (no .git directory, no edits to upstream files). New
+RaidWatch code is added in separate translation units, keeping upstream files
+untouched. Upstream is near-dormant; syncing forward is a manual procedure
+documented in native/README.md.
