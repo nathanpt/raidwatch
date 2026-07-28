@@ -134,7 +134,7 @@ RwSnapshot RwCollector::gather_snapshot() {
 
     // Wait for btop's Runner to finish any in-flight collect so we read a
     // consistent cached snapshot (btop's draw loop uses this same guard).
-    atomic_wait_for(Runner::active, true, 5000);
+    Tools::atomic_wait_for(Runner::active, true, 5000);
 
     int cpu_fails = 0, mem_fails = 0, net_fails = 0, proc_fails = 0;
 
