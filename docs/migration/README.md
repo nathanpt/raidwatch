@@ -143,6 +143,10 @@ for steps 01–10. The Linux dev box is **docs/planning only** during the
 migration — it can author and review the docs in this folder but cannot build or
 run `raidwatch.exe`.
 
+> **Operational host-access notes** — SSH to the build host, the elevation
+> "sudo" trick, and the C++ build gotchas learned in step 01 live in
+> `.docs/HANDOFF.md` (gitignored, local). Read it before driving the host.
+
 The **Python suite stays the source of truth for legacy behavior** until step 10
 deletes it. Until then:
 

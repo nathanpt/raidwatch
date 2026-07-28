@@ -118,4 +118,6 @@ correct-by-construction):
 ## Design Docs (local only, gitignored)
 
 `.docs/DESIGN.md` — the living spec. `.docs/DECISIONS.md` — ADR log (D1–D35).
+`.docs/HANDOFF.md` — session handoff: build-host SSH/elevation, C++ build
+gotchas, and migration step status (read first when resuming the migration).
 Not in the public repo; `DNN` references in code/docs resolve there.
